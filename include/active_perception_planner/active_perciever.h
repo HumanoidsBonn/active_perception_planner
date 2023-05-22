@@ -11,7 +11,7 @@
 #include<pcl_conversions/pcl_conversions.h>
 namespace active_perception_planner {
 
-enum ActivePerciverStatus
+enum ActivePercieverStatus
 {
   IDLE = 0,
   LOCAL_MAPPING_MOTION_IN_PROGRESS = 1,
@@ -39,20 +39,20 @@ public:
 
   ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame);
 
-  ActiverPerciverStatus getActivePercieverStatus();
+  ActivePercieverStatus getActivePercieverStatus();
 
   bool clearSceneMap();
 
-  ActivePerciverStatus performLocalMappingMotion();
+  ActivePercieverStatus performLocalMappingMotion();
 
-  ActivePerciverStatus createSceneMapWithCompletedFruits();
+  bool createSceneMapWithCompletedFruits();
 
-  ActivePerciverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
+  ActivePercieverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
 
 
 
 protected:
-  ActivePerciverStatus status_;
+  ActivePercieverStatus status_;
   ros::NodeHandle nh_, nhp_;
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
@@ -87,7 +87,7 @@ protected:
   bool moveToInitialMappingPose();
   bool moveToNextMappingPose(const std::string &next_pose);
 
-  void setActivePercieverStatus(const ActiverPerciverStatus& status);
+  void setActivePercieverStatus(const ActivePercieverStatus& status);
 };
 
 } // namespace active_perception_planner

@@ -3,7 +3,7 @@
 
 using namespace active_perception_planner;
 
-ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActiverPerciverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP")
+ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP")
 {
   nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz::CommandPlanner");
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
@@ -13,11 +13,11 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   motion_planner_->initialisePlanner(moveit_planner_type_, motion_type_, planning_group_name_);
   motion_planner_->initialiseMotionPlanRequest(motion_type_, planning_group_name_, num_planning_attempts_, allowed_planning_time_);
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/reset_map");
-  get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::´>("get_list_instance_pointclouds");
+  get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("get_list_instance_pointclouds");
   get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("get_scene_pointcloud");
 }
 
-ActivePerciverStatus ActivePerciever::getActivePercieverStatus()
+ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 {
   return status_;
 }
@@ -31,7 +31,7 @@ bool ActivePerciever::clearSceneMap()
   }
 }
 
-ActivePerciverStatus ActivePerciever::performLocalMappingMotion()
+ActivePercieverStatus ActivePerciever::performLocalMappingMotion()
 {
   if(checkManipulationArmsStowed() == false)
   {
@@ -79,9 +79,10 @@ bool ActivePerciever::createSceneMapWithCompletedFruits()
   {
     pcl::PointCloud<pcl::PointXYZRGB>::Ptr obs_cloud_ptr;
     pcl::fromROSMsg(inst_element.pointcloud, *obs_cloud_ptr);
-    superellipsoid::SuperellipsoidResult<pcl::PointXYZ> res  = se_detector->computeSuperellipsoidResult<pcl::PointXYZ>(obs_cloud_ptr);
+    superellipsoid::SuperellipsoidResult<pcl::PointXYZ> res  = se_detector_->computeSuperellipsoidResult<pcl::PointXYZ>(obs_cloud_ptr);
     vec_se.push_back(res);
   }
+
 }
 
 bool ActivePerciever::checkManipulationArmsStowed()
