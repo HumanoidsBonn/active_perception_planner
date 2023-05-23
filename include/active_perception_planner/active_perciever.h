@@ -17,20 +17,28 @@ enum ActivePercieverStatus
   LOCAL_MAPPING_MOTION_IN_PROGRESS = 1,
   LOCAL_MAPPING_MOTION_SUCCESS = 2,
   FRUIT_MAP_GENERATION_IN_PROGRESS = 3,
+
   FRUIT_MAP_GENERATION_SUCCESS = 4,
-  FRUIT_SHAPE_COMPLETION_IN_PROGRESS = 5,
-  FRUIT_SHAPE_COMPLETION_SUCCESS = 6,
-  FRUIT_MAP_DETECTION_SUCCESS = 7,
-  FRUIT_FOLLOWING_IN_PROGRESS = 8,
-  PEDUNCLE_DETECTION_PROGRESS = 9,
+  FRUIT_FOLLOWING_IN_PROGRESS = 5,
+  PEDUNCLE_DETECTION_PROGRESS = 6,
 
   ERROR_MANIP_ARMS_NOT_STOWED = -1,
   ERROR_MOVE_TO_INIT_MAPPING_POSE = -2,
   ERROR_LOCAL_MAPPING_MOTION = -3,
   ERROR_MAP_GENERATION = -4,
-  ERROR_SHAPE_COMPLETION = -5,
-  ERROR_FRUIT_MAP_DETECTION = -7,
-  ERROR_FRUIT_FOLLOWING = -8
+  ERROR_NO_FRUITS_IN_MAP = -5,
+  ERROR_SHAPE_COMPLETION = -6,
+  ERROR_FRUIT_FOLLOWING = -7
+};
+
+struct DetectedFruitsWithMap
+{
+  std::vector<superellipsoid::DetectedFruit> fruits;
+
+  void clear()
+  {
+    fruits.clear();
+  }
 };
 
 class ActivePerciever{
@@ -73,6 +81,8 @@ protected:
   ros::ServiceClient reset_map_client_;
   ros::ServiceClient get_instanceclouds_client_;
   ros::ServiceClient get_scenecloud_client_;
+
+  DetectedFruitsWithMap fruits_with_map_;
 
 
   //sensor_msgs::JointState

@@ -24,6 +24,7 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 
 bool ActivePerciever::clearSceneMap()
 {
+  fruits_with_map_.clear();
   std_srvs::Empty empty_srv;
   if (!reset_map_client_.call(empty_srv))
   {
@@ -58,6 +59,8 @@ ActivePercieverStatus ActivePerciever::performLocalMappingMotion()
 
 bool ActivePerciever::createSceneMapWithCompletedFruits()
 {
+  setActivePercieverStatus(FRUIT_MAP_GENERATION_IN_PROGRESS);
+  fruits_with_map_.clear();
   vpp_msgs::GetScenePointcloud get_scene_srv;
   if(!get_scenecloud_client_.call(get_scene_srv))
   {
@@ -74,14 +77,29 @@ bool ActivePerciever::createSceneMapWithCompletedFruits()
     setActivePercieverStatus(ERROR_MAP_GENERATION);
     return false;
   }
-  std::vector<superellipsoid::SuperellipsoidResult<pcl::PointXYZ>> vec_se;
+  if(instcloud_srv.response.instance_clouds_with_centroid.empty())
+  {
+    ROS_ERROR("Failed to detect fruits in the 3D map");
+    setActivePercieverStatus(ERROR_NO_FRUITS_IN_MAP);
+    return false;
+  }
+  bool atleast_one_completed_fruit = false;
   for(const auto& inst_element:instcloud_srv.response.instance_clouds_with_centroid)
   {
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr obs_cloud_ptr;
-    pcl::fromROSMsg(inst_element.pointcloud, *obs_cloud_ptr);
-    superellipsoid::SuperellipsoidResult<pcl::PointXYZ> res  = se_detector_->computeSuperellipsoidResult<pcl::PointXYZ>(obs_cloud_ptr);
-    vec_se.push_back(res);
+    superellipsoid::DetectedFruit fruit;
+    pcl::fromROSMsg(inst_element.pointcloud, *(fruit.observed_fruit_shape));
+    fruit.fruit_id = inst_element.instance_id;
+    bool success = se_detector_->completeFruitShape(fruit);
+    if(success)
+      atleast_one_completed_fruit = true;
+    fruits_with_map_.fruits.push_back(fruit);
   }
+  if(atleast_one_completed_fruit == false)
+  {
+    setActivePercieverStatus(ERROR_SHAPE_COMPLETION);
+    return false;
+  }
+  setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
 
 }
 
