@@ -24,7 +24,7 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 
 bool ActivePerciever::clearSceneMap()
 {
-  fruits_with_map_.clear();
+  fruit_map_.clear();
   std_srvs::Empty empty_srv;
   if (!reset_map_client_.call(empty_srv))
   {
@@ -60,7 +60,7 @@ ActivePercieverStatus ActivePerciever::performLocalMappingMotion()
 bool ActivePerciever::createSceneMapWithCompletedFruits()
 {
   setActivePercieverStatus(FRUIT_MAP_GENERATION_IN_PROGRESS);
-  fruits_with_map_.clear();
+  fruit_map_.clear();
   vpp_msgs::GetScenePointcloud get_scene_srv;
   if(!get_scenecloud_client_.call(get_scene_srv))
   {
@@ -92,7 +92,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits()
     bool success = se_detector_->completeFruitShape(fruit);
     if(success)
       atleast_one_completed_fruit = true;
-    fruits_with_map_.fruits.push_back(fruit);
+    fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
   }
   if(atleast_one_completed_fruit == false)
   {
@@ -100,7 +100,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits()
     return false;
   }
   setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
-
+  return true;
 }
 
 bool ActivePerciever::checkManipulationArmsStowed()
@@ -115,6 +115,7 @@ bool ActivePerciever::moveToInitialMappingPose()
 {
   motion_planner_->clearMotionPlanRequestConstraints();
   return motion_planner_->moveNamedTarget("initial_mapping_pose", motion_type_);
+
 }
 
 bool ActivePerciever::moveToNextMappingPose(const std::string& next_pose)
@@ -128,6 +129,21 @@ bool ActivePerciever::moveToNextMappingPose(const std::string& next_pose)
   return success;
 }
 
+bool ActivePerciever::retrieveInterestedFruit(const uint &fruit_id)
+{
+  FruitMapIterator it = fruit_map_.find(fruit_id);
+  if(it == fruit_map_.end())
+  {
+    return false;
+  }
+  interested_fruit_ = it->second;
+  return true;
+}
+bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
+{
+
+
+}
 
 
 

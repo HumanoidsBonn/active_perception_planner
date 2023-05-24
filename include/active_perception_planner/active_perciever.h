@@ -31,15 +31,9 @@ enum ActivePercieverStatus
   ERROR_FRUIT_FOLLOWING = -7
 };
 
-struct DetectedFruitsWithMap
-{
-  std::vector<superellipsoid::DetectedFruit> fruits;
+typedef std::map<uint, superellipsoid::DetectedFruit> FruitMap;
+typedef std::map<uint, superellipsoid::DetectedFruit>::iterator FruitMapIterator;
 
-  void clear()
-  {
-    fruits.clear();
-  }
-};
 
 class ActivePerciever{
 
@@ -55,8 +49,9 @@ public:
 
   bool createSceneMapWithCompletedFruits();
 
-  ActivePercieverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
+  bool moveToInterestedFruitObservationPose(const uint& fruit_id);
 
+  ActivePercieverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
 
 
 protected:
@@ -82,8 +77,8 @@ protected:
   ros::ServiceClient get_instanceclouds_client_;
   ros::ServiceClient get_scenecloud_client_;
 
-  DetectedFruitsWithMap fruits_with_map_;
-
+  FruitMap fruit_map_;
+  superellipsoid::DetectedFruit interested_fruit_;
 
   //sensor_msgs::JointState
 
@@ -98,6 +93,9 @@ protected:
   bool moveToNextMappingPose(const std::string &next_pose);
 
   void setActivePercieverStatus(const ActivePercieverStatus& status);
+
+  bool retrieveInterestedFruit(const uint &fruit_id);
+
 };
 
 } // namespace active_perception_planner
