@@ -60,6 +60,9 @@
   <depend>roscpp</depend>
   <depend>rospy</depend>
   <depend>dynamic_reconfigure</depend>
+  <depend>voxblox</depend>
+  <depend>voxblox_msgs</depend>
+  <depend>voxblox_ros</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

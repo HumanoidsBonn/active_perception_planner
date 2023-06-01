@@ -1,9 +1,10 @@
-#include "active_perception_planner/active_perciever.h"
-
+#include <active_perception_planner/active_perciever.h>
+#include <active_perception_planner/utils.h>
+#include <deque>
 
 using namespace active_perception_planner;
 
-ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP")
+ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10)
 {
   nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz::CommandPlanner");
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
@@ -29,21 +30,23 @@ bool ActivePerciever::clearSceneMap()
   if (!reset_map_client_.call(empty_srv))
   {
       ROS_ERROR("Failed to call reset vpp map service");
+      return false;
   }
+  return true;
 }
 
-ActivePercieverStatus ActivePerciever::performLocalMappingMotion()
+bool ActivePerciever::performLocalMappingMotion()
 {
   if(checkManipulationArmsStowed() == false)
   {
     setActivePercieverStatus(ERROR_MANIP_ARMS_NOT_STOWED);
-    return getActivePercieverStatus();
+    return false; //getActivePercieverStatus();
   }
 
   if(moveToInitialMappingPose() == false)
   {
     setActivePercieverStatus(ERROR_MOVE_TO_INIT_MAPPING_POSE);
-    return getActivePercieverStatus();
+    return false; //getActivePercieverStatus();
   }
 
   for(const auto& next_pose: mapping_poses_list_)
@@ -51,13 +54,13 @@ ActivePercieverStatus ActivePerciever::performLocalMappingMotion()
     if(moveToNextMappingPose(next_pose)== false)
     {
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
-      return getActivePercieverStatus();
+      return false; //getActivePercieverStatus();
     }
   }
-  return getActivePercieverStatus();
+  return true; //getActivePercieverStatus();
 }
 
-bool ActivePerciever::createSceneMapWithCompletedFruits()
+bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstancePointclouds& instcloud_srv)
 {
   setActivePercieverStatus(FRUIT_MAP_GENERATION_IN_PROGRESS);
   fruit_map_.clear();
@@ -69,7 +72,6 @@ bool ActivePerciever::createSceneMapWithCompletedFruits()
     return false;
   }
 
-  vpp_msgs::GetListInstancePointclouds instcloud_srv;
   instcloud_srv.request.get_specific_instances = false;
   if(!get_instanceclouds_client_.call(instcloud_srv))
   {
@@ -129,20 +131,78 @@ bool ActivePerciever::moveToNextMappingPose(const std::string& next_pose)
   return success;
 }
 
-bool ActivePerciever::retrieveInterestedFruit(const uint &fruit_id)
+bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id, const geometry_msgs::Point& desired_fruit_centre)
 {
-  FruitMapIterator it = fruit_map_.find(fruit_id);
-  if(it == fruit_map_.end())
+  FruitMapIterator it = fruit_map_.find(desired_fruit_id);
+  bool success = false;
+  if(it != fruit_map_.end())
   {
+   interested_fruit_ = it->second;
+   success = isFruitCentreSimilar(desired_fruit_centre, interested_fruit_.fruit_centre);
+  }
+  return success;
+}
+
+bool ActivePerciever::retrieveInterestedFruit(const geometry_msgs::Point& desired_fruit_centre)
+{
+  return false;
+}
+
+bool ActivePerciever::findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& optimum_poses)
+{
+  Eigen::Vector3d ray_origin, ray_pt;
+  ray_origin(0) = interested_fruit_.fruit_centre.x;
+  ray_origin(1) = interested_fruit_.fruit_centre.y;
+  ray_origin(2) = interested_fruit_.fruit_centre.z;
+
+  ray_pt(0) = interested_fruit_.observed_shape_centroid.x;
+  ray_pt(1) = interested_fruit_.observed_shape_centroid.y;
+  ray_pt(2) = interested_fruit_.observed_shape_centroid.z;
+
+  bool success = false;
+  optimum_poses.clear();
+  for(int num_tries = 0; num_tries < max_num_tries_; num_tries++)
+  {
+    Eigen::Vector3d inter_pt;
+    plane_point_.setZero();
+    plane_point_(2) = obs_z_plane_;
+    if(calcLinePlaneIntersection(inter_pt, ray_origin, ray_pt, plane_normal_, plane_point_))
+    {
+      if(map_->getVoxelState(inter_pt) == VoxelState::FREE)
+      {
+        success = true;
+        auto view_pose = fromEigen2GeometryMsg(inter_pt, ray_pt-ray_origin, view_dir_, cam_quat_);
+        optimum_poses.push_back(view_pose);
+      }
+    }
+    plane_point_(2) = obs_z_plane_ + voxel_factor_*map_->getVoxelSize();
+  }
+  return success;
+}
+
+bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id, const geometry_msgs::Point& fruit_centre)
+{
+  if(retrieveInterestedFruit(fruit_id, fruit_centre) == false)
+  {
+    ROS_WARN_STREAM("Could not retrive fruit with fruit id "<<int(fruit_id));
     return false;
   }
-  interested_fruit_ = it->second;
-  return true;
-}
-bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
-{
+  //std::vector<geometry_msgs::Pose> view_poses;
+  std::deque<geometry_msgs::Pose> view_poses;
+  if(findOptimumFruitObservationPoses(view_poses) == false)
+  {
+    ROS_WARN_STREAM("Could not find even a single optimum fruit observation pose");
+    return false;
+  }
 
-
+  bool move_success = false;
+  while(move_success == false && !view_poses.empty())
+  {
+    geometry_msgs::Pose view_pose = view_poses.front();
+    move_success = motion_planner_->movePoseTarget(view_pose, "PTP");
+    view_poses.pop_front();
+  }
+  return move_success;
 }
 
 

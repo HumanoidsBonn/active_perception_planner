@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.0.2)
 project(active_perception_planner)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++14)
+add_compile_options(-std=c++17)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -15,7 +15,12 @@ find_package(catkin REQUIRED
     moveit_motion_planner
     rospy
     roscpp
-    dynamic_reconfigure)
+    dynamic_reconfigure
+    voxblox
+    voxblox_msgs
+    voxblox_ros
+
+)
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
@@ -106,7 +111,7 @@ find_package(catkin REQUIRED
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
+  INCLUDE_DIRS include ${catkin_INCLUDE_DIRS}
   LIBRARIES active_perception_planner
   CATKIN_DEPENDS capsicum_superellipsoid_detector oc2_interface_msgs
   rospy roscpp dynamic_reconfigure
@@ -127,6 +132,7 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
     src/${PROJECT_NAME}/active_perciever.cpp
+    src/${PROJECT_NAME}/voxblox_map.cpp
 )
 
 ## Add cmake target dependencies of the library

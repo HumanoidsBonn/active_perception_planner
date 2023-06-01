@@ -9,6 +9,17 @@
 #include<vpp_msgs/GetScenePointcloud.h>
 #include<vpp_msgs/GetListInstancePointclouds.h>
 #include<pcl_conversions/pcl_conversions.h>
+
+#include <voxblox_msgs/Layer.h>
+#include <voxblox/core/tsdf_map.h>
+#include <voxblox_ros/tsdf_server.h>
+
+#include <geometry_msgs/TransformStamped.h>
+
+#include <active_perception_planner/voxblox_map.h>
+#include<vector>
+
+
 namespace active_perception_planner {
 
 enum ActivePercieverStatus
@@ -45,11 +56,15 @@ public:
 
   bool clearSceneMap();
 
-  ActivePercieverStatus performLocalMappingMotion();
+  bool performLocalMappingMotion();
 
-  bool createSceneMapWithCompletedFruits();
+  bool createSceneMapWithCompletedFruits(vpp_msgs::GetListInstancePointclouds& instcloud_srv);
 
-  bool moveToInterestedFruitObservationPose(const uint& fruit_id);
+  bool moveToInterestedFruitObservationPose(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
+
+  bool startFollowFruit(const uint &fruit_id);
+
+  bool stopFollowFruit();
 
   ActivePercieverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
 
@@ -60,6 +75,14 @@ protected:
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
+  std::shared_ptr<active_perception_planner::VoxbloxMap> map_;
+
+  //voxblox map
+  std::mutex layer_mutex_;
+  bool layer_present_;
+  std::shared_ptr<voxblox::Layer<voxblox::TsdfVoxel>> map_layer_;
+  std::shared_ptr<voxblox::Block<voxblox::TsdfVoxel>> block_;
+  voxblox::TsdfVoxel voxel_;
 
   std::string planning_group_name_;
   std::string base_frame_;
@@ -80,6 +103,16 @@ protected:
   FruitMap fruit_map_;
   superellipsoid::DetectedFruit interested_fruit_;
 
+  double obs_z_plane_;
+
+  Eigen::Vector3d plane_point_, plane_normal_;
+  int voxel_factor_, max_num_tries_;
+
+  geometry_msgs::TransformStamped came_frame_tf_;
+
+  tf2::Quaternion cam_quat_;
+  tf2::Vector3 view_dir_;
+
   //sensor_msgs::JointState
 
   std::vector<std::string> mapping_poses_list_; // list of named poses for exploring the current local poses
@@ -94,7 +127,11 @@ protected:
 
   void setActivePercieverStatus(const ActivePercieverStatus& status);
 
-  bool retrieveInterestedFruit(const uint &fruit_id);
+  bool retrieveInterestedFruit(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
+  bool retrieveInterestedFruit(const geometry_msgs::Point& desired_fruit_centre);
+
+  bool findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& view_poses);
+
 
 };
 
