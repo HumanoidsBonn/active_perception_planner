@@ -18,6 +18,8 @@
 
 #include <active_perception_planner/voxblox_map.h>
 #include<vector>
+#include <tf/transform_listener.h>
+
 
 
 namespace active_perception_planner {
@@ -113,8 +115,10 @@ protected:
   ros::ServiceClient get_scenecloud_client_;
 
   ros::Publisher pub_status_advertiser_;
-
   std::atomic<int8_t> status_atomic_;
+
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 
   FruitMap fruit_map_;
   bool fruit_map_available_ = false;
@@ -131,6 +135,7 @@ protected:
   tf2::Vector3 view_dir_;
 
   sensor_msgs::PointCloud2 scene_cloud_;
+
 
   //sensor_msgs::JointState
 
@@ -151,8 +156,15 @@ protected:
   }
 
   bool retrieveInterestedFruit(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
-  bool retrieveInterestedFruit(const geometry_msgs::Point& fruit_centre);
   bool retrieveInterestedFruit(const uint &desired_fruit_id);
+
+  std::deque<superellipsoid::DetectedFruit> interested_fruit_detections_buffer_;
+  superellipsoid::DetectedFruit prev_interested_fruit_detection_;
+
+  bool isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate);
+
+  bool updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud); // const geometry_msgs::Point& fruit_centre);
+
 
   bool findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& view_poses);
 
@@ -165,6 +177,11 @@ protected:
   void publishStatusTimerCallback(const ros::TimerEvent&);
 
   void followFruitCallback(const ros::TimerEvent&);
+
+  int min_cluster_size_, max_cluster_size_, cluster_tolerance_;
+  std::string world_frame_;
+
+  std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl);
 
 };
 

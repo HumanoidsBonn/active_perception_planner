@@ -3,9 +3,15 @@
 #include <deque>
 #include <std_msgs/Int8.h>
 
+#include <pcl/filters/conditional_removal.h>
+#include <pcl_ros/transforms.h>
+#include <pcl_conversions/pcl_conversions.h>
+
 using namespace active_perception_planner;
 
-ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10)
+ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
+  tf_buffer_(ros::Duration(30)),
+  tf_listener_(tf_buffer_)
 {
   nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz::CommandPlanner");
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
@@ -152,13 +158,15 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id, cons
   return success;
 }
 
-bool ActivePerciever::retrieveInterestedFruit(const geometry_msgs::Point& desired_fruit_centre)
-{
-  return false;
-}
-
 bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 {
+  FruitMapIterator it = fruit_map_.find(desired_fruit_id);
+  bool success = false;
+  if(it != fruit_map_.end())
+  {
+   interested_fruit_ = it->second;
+   return true;
+  }
   return false;
 }
 
@@ -247,3 +255,61 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 {
 
 }
+
+
+bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold)
+{
+  return isFruitCentreSimilar(prev_det.fruit_centre, potential_candidate.fruit_centre, center_threshold);
+}
+
+std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl)
+{
+  // Filter NaN Values
+  std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> clusters;
+  std::shared_ptr<std::vector<int>> indices(new std::vector<int>);
+  pcl::removeNaNFromPointCloud(*pc_pcl, *pc_pcl, *indices);
+
+  if (pc_pcl->size() < min_cluster_size_)
+  {
+    ROS_ERROR("pc_pcl->size() < p_min_cluster_size");
+    clusters.clear();
+    return clusters;
+  }
+  pcl_ros::transformPointCloud(world_frame_, *pc_pcl, *pc_pcl, tf_listener_);
+  std_msgs::Header pc_pcl_tf_ros_header = pcl_conversions::fromPCL(pc_pcl->header);
+
+  // Clustering
+  std::vector<pcl::PointIndices> cluster_indices;
+  clusters = clustering::euclideanClusterExtraction(pc_pcl, cluster_indices, cluster_tolerance_, min_cluster_size_, max_cluster_size_);
+
+  return clusters;
+}
+
+bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud)
+{
+  // Convert to PCL Pointcloud
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl (new pcl::PointCloud<pcl::PointXYZRGB>);
+  pcl::fromROSMsg(surface_cloud, *pc_pcl);
+
+  auto clusters = getClusters(pc_pcl);
+
+  if(clusters.empty())
+    return false;
+
+  for(auto& cluster: clusters)
+  {
+    superellipsoid::DetectedFruit possible_same_fruit_;
+    if(se_detector_->completeFruitShape(cluster, possible_same_fruit_) == false)
+      continue;
+
+    if(isDetectedFruitCurrentInterestedOne(prev_interested_fruit_detection_, possible_same_fruit_))
+    {
+      interested_fruit_detections_buffer_.push_back(possible_same_fruit_);
+      interested_fruit_detections_buffer_.pop_back();
+      prev_interested_fruit_detection_ = possible_same_fruit_;
+      return true;
+    }
+  }
+
+}
+
