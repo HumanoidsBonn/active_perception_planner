@@ -68,10 +68,22 @@ public:
 
   ActivePercieverStatus followFruit(const uint& fruit_id, const geometry_msgs::Point& fruit_centre);
 
+  inline FruitMap getFruitMap()
+  {
+    return fruit_map_;
+  }
+
+  inline sensor_msgs::PointCloud2 getScenePointCloud()
+  {
+    return scene_cloud_;
+  }
+
 
 protected:
   ActivePercieverStatus status_;
   ros::NodeHandle nh_, nhp_;
+
+  ros::Timer timer_fruit_follower_, timer_status_publisher_;
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
@@ -100,7 +112,12 @@ protected:
   ros::ServiceClient get_instanceclouds_client_;
   ros::ServiceClient get_scenecloud_client_;
 
+  ros::Publisher pub_status_advertiser_;
+
+  std::atomic<int8_t> status_atomic_;
+
   FruitMap fruit_map_;
+  bool fruit_map_available_ = false;
   superellipsoid::DetectedFruit interested_fruit_;
 
   double obs_z_plane_;
@@ -112,6 +129,8 @@ protected:
 
   tf2::Quaternion cam_quat_;
   tf2::Vector3 view_dir_;
+
+  sensor_msgs::PointCloud2 scene_cloud_;
 
   //sensor_msgs::JointState
 
@@ -125,13 +144,27 @@ protected:
   bool moveToInitialMappingPose();
   bool moveToNextMappingPose(const std::string &next_pose);
 
-  void setActivePercieverStatus(const ActivePercieverStatus& status);
+  inline void setActivePercieverStatus(const ActivePercieverStatus& status)
+  {
+    status_atomic_.store(int(status));
+    status_ = status;
+  }
 
   bool retrieveInterestedFruit(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
-  bool retrieveInterestedFruit(const geometry_msgs::Point& desired_fruit_centre);
+  bool retrieveInterestedFruit(const geometry_msgs::Point& fruit_centre);
+  bool retrieveInterestedFruit(const uint &desired_fruit_id);
 
   bool findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& view_poses);
 
+  inline void setScenePointCloud(const sensor_msgs::PointCloud2& cloud)
+  {
+    scene_cloud_.data.clear();
+    scene_cloud_ = cloud;
+  }
+
+  void publishStatusTimerCallback(const ros::TimerEvent&);
+
+  void followFruitCallback(const ros::TimerEvent&);
 
 };
 

@@ -16,13 +16,13 @@ class ActivePercieverInterface
 {
 public:
 
-  ActivePercieverInterface(ros::NodeHandle& nhp);
+  ActivePercieverInterface();
 
-  bool processDetectFruitsServiceCallback(const oc2_interface_msgs::DetectFruits::Request& req, oc2_interface_msgs::DetectFruits::Response& res);
+  bool processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request& req, oc2_interface_msgs::DetectFruits::Response& res);
 
-  bool processStartFollowFruitsServiceCallback(const oc2_interface_msgs::StartFollowFruit::Request& req, oc2_interface_msgs::StartFollowFruit::Response& res);
+  bool processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request& req, oc2_interface_msgs::StartFollowFruit::Response& res);
 
-  bool processStopFollowFruitsServiceCallback(const oc2_interface_msgs::StopFollowFruit::Request& req, oc2_interface_msgs::StopFollowFruit::Response& res);
+  bool processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request& req, oc2_interface_msgs::StopFollowFruit::Response& res);
 
 
 protected:
@@ -32,6 +32,9 @@ protected:
   ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_stop_follow_fruits_;
 
   std::shared_ptr<ActivePerciever> active_perciever_;
+
+  oc2_interface_msgs::DetectFruits::Response getFruitMapAsSrvResponse();
+
 };
 
 }

@@ -1,6 +1,7 @@
 #include <active_perception_planner/active_perciever.h>
 #include <active_perception_planner/utils.h>
 #include <deque>
+#include <std_msgs/Int8.h>
 
 using namespace active_perception_planner;
 
@@ -16,6 +17,12 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/reset_map");
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("get_list_instance_pointclouds");
   get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("get_scene_pointcloud");
+
+  timer_fruit_follower_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
+  timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
+
+  pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("active_perciever_status", 1, true);
+
 }
 
 ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
@@ -26,6 +33,7 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 bool ActivePerciever::clearSceneMap()
 {
   fruit_map_.clear();
+  fruit_map_available_ = false;
   std_srvs::Empty empty_srv;
   if (!reset_map_client_.call(empty_srv))
   {
@@ -101,6 +109,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     setActivePercieverStatus(ERROR_SHAPE_COMPLETION);
     return false;
   }
+  fruit_map_available_ = true;
   setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
   return true;
 }
@@ -144,6 +153,11 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id, cons
 }
 
 bool ActivePerciever::retrieveInterestedFruit(const geometry_msgs::Point& desired_fruit_centre)
+{
+  return false;
+}
+
+bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 {
   return false;
 }
@@ -205,5 +219,31 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id,
   return move_success;
 }
 
+bool ActivePerciever::startFollowFruit(const uint &fruit_id)
+{
+  if(retrieveInterestedFruit(fruit_id))
+  return true;
+}
+
+bool ActivePerciever::stopFollowFruit()
+{
+  timer_fruit_follower_.stop();
+  while(timer_fruit_follower_.hasStarted() == false)
+  {
+    sleep(0.5);
+  }
+  return true;
+}
+
+void ActivePerciever::publishStatusTimerCallback(const ros::TimerEvent&)
+{
+  std_msgs::Int8 status_msg;
+  status_msg.data = status_atomic_.load();
+  pub_status_advertiser_.publish(status_msg);
+}
 
 
+void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
+{
+
+}
