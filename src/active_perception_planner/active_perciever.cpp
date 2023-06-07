@@ -8,6 +8,7 @@
 #include <pcl_conversions/pcl_conversions.h>
 
 using namespace active_perception_planner;
+using namespace utils;
 
 ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
   tf_buffer_(ros::Duration(30)),
@@ -275,7 +276,7 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters
     clusters.clear();
     return clusters;
   }
-  pcl_ros::transformPointCloud(world_frame_, *pc_pcl, *pc_pcl, tf_listener_);
+  //pcl_ros::transformPointCloud(world_frame_, *pc_pcl, *pc_pcl, tf_listener_);
   std_msgs::Header pc_pcl_tf_ros_header = pcl_conversions::fromPCL(pc_pcl->header);
 
   // Clustering
@@ -298,15 +299,15 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
 
   for(auto& cluster: clusters)
   {
-    superellipsoid::DetectedFruit possible_same_fruit_;
-    if(se_detector_->completeFruitShape(cluster, possible_same_fruit_) == false)
+    superellipsoid::DetectedFruit possible_same_fruit;
+    if(se_detector_->completeFruitShape(cluster, possible_same_fruit) == false)
       continue;
 
-    if(isDetectedFruitCurrentInterestedOne(prev_interested_fruit_detection_, possible_same_fruit_))
+    if(isDetectedFruitCurrentInterestedOne(prev_interested_fruit_detection_, possible_same_fruit))
     {
-      interested_fruit_detections_buffer_.push_back(possible_same_fruit_);
+      interested_fruit_detections_buffer_.push_back(possible_same_fruit);
       interested_fruit_detections_buffer_.pop_back();
-      prev_interested_fruit_detection_ = possible_same_fruit_;
+      prev_interested_fruit_detection_ = possible_same_fruit;
       return true;
     }
   }

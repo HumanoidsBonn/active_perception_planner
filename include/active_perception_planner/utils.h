@@ -5,7 +5,7 @@
 #include <geometry_msgs/Point.h>
 #include <eigen_conversions/eigen_msg.h>
 
-namespace active_perception_planner{
+namespace utils{
 
 //https://stackoverflow.com/questions/7168484/3d-line-segment-and-plane-intersection
 

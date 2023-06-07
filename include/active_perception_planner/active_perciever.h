@@ -161,7 +161,7 @@ protected:
   std::deque<superellipsoid::DetectedFruit> interested_fruit_detections_buffer_;
   superellipsoid::DetectedFruit prev_interested_fruit_detection_;
 
-  bool isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate);
+  bool isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold = 0.01);
 
   bool updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud); // const geometry_msgs::Point& fruit_centre);
 
