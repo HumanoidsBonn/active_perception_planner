@@ -80,6 +80,8 @@ public:
     return scene_cloud_;
   }
 
+  void receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2& pc_msg);
+
 
 protected:
   ActivePercieverStatus status_;
@@ -117,6 +119,10 @@ protected:
   ros::Publisher pub_status_advertiser_;
   std::atomic<int8_t> status_atomic_;
 
+  ros::Publisher pub_interested_fruit_;
+
+  ros::Subscriber sub_surface_cloud_;
+
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
@@ -135,6 +141,8 @@ protected:
   tf2::Vector3 view_dir_;
 
   sensor_msgs::PointCloud2 scene_cloud_;
+
+  std::string surface_cloud_topic_;
 
 
   //sensor_msgs::JointState
@@ -159,7 +167,7 @@ protected:
   bool retrieveInterestedFruit(const uint &desired_fruit_id);
 
   std::deque<superellipsoid::DetectedFruit> interested_fruit_detections_buffer_;
-  superellipsoid::DetectedFruit prev_interested_fruit_detection_;
+  superellipsoid::DetectedFruit curr_est_interested_fruit_, prev_est_interested_fruit_;
 
   bool isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold = 0.01);
 
@@ -182,6 +190,19 @@ protected:
   std::string world_frame_;
 
   std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl);
+
+  inline superellipsoid::DetectedFruit getCurrentEstimateOfTheInterestedFruit()
+  {
+    return curr_est_interested_fruit_;
+  }
+
+  inline void setCurrentEstimateOfTheInterestedFruit(const superellipsoid::DetectedFruit& fruit)
+  {
+    prev_est_interested_fruit_ = curr_est_interested_fruit_;
+    curr_est_interested_fruit_ = fruit;
+  }
+
+  oc2_interface_msgs::DetectedFruit getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
 
 };
 

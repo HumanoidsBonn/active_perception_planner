@@ -28,7 +28,12 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   timer_fruit_follower_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
   timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
 
+  sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
+
   pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("active_perciever_status", 1, true);
+
+  pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, true);
+
 
 }
 
@@ -257,7 +262,6 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 
 }
 
-
 bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold)
 {
   return isFruitCentreSimilar(prev_det.fruit_centre, potential_candidate.fruit_centre, center_threshold);
@@ -296,21 +300,40 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
 
   if(clusters.empty())
     return false;
-
+  prev_est_interested_fruit_ = curr_est_interested_fruit_;
   for(auto& cluster: clusters)
   {
     superellipsoid::DetectedFruit possible_same_fruit;
     if(se_detector_->completeFruitShape(cluster, possible_same_fruit) == false)
       continue;
 
-    if(isDetectedFruitCurrentInterestedOne(prev_interested_fruit_detection_, possible_same_fruit))
+    if(isDetectedFruitCurrentInterestedOne(prev_est_interested_fruit_, possible_same_fruit))
     {
-      interested_fruit_detections_buffer_.push_back(possible_same_fruit);
-      interested_fruit_detections_buffer_.pop_back();
-      prev_interested_fruit_detection_ = possible_same_fruit;
+      //interested_fruit_detections_buffer_.push_back(possible_same_fruit);
+      //interested_fruit_detections_buffer_.pop_back();
+      curr_est_interested_fruit_ = possible_same_fruit;
       return true;
     }
   }
-
+  return false;
 }
 
+oc2_interface_msgs::DetectedFruit ActivePerciever::getasRosMsgType(const superellipsoid::DetectedFruit& fruit)
+{
+  oc2_interface_msgs::DetectedFruit fruit_msg;
+
+  fruit_msg.fruit_id = fruit.fruit_id;
+  pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
+  pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
+  fruit_msg.fruit_pose.position = fruit.fruit_centre;
+
+  return fruit_msg;
+}
+
+void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2 &pc_msg)
+{
+  if(updateInterestedFruit(pc_msg) == false)
+    return;
+
+  pub_interested_fruit_.publish(getasRosMsgType(getCurrentEstimateOfTheInterestedFruit()));
+}
