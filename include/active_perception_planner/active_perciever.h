@@ -1,10 +1,17 @@
 #ifndef ACTIVE_PERCEPTION_PLANNER_ACTIVE_PERCIEVER_H
 #define ACTIVE_PERCEPTION_PLANNER_ACTIVE_PERCIEVER_H
 
+#include<vector>
+#include<memory>
+
+
+
 #include "ros/ros.h"
 #include <std_srvs/Empty.h>
-#include<moveit_motion_planner/motion_planner.h>
-#include<capsicum_superellipsoid_detector/se_detector.h>
+#include <tf/transform_listener.h>
+#include <geometry_msgs/TransformStamped.h>
+
+
 #include<oc2_interface_msgs/DetectedFruits.h>
 #include<vpp_msgs/GetScenePointcloud.h>
 #include<vpp_msgs/GetListInstancePointclouds.h>
@@ -14,11 +21,9 @@
 #include <voxblox/core/tsdf_map.h>
 #include <voxblox_ros/tsdf_server.h>
 
-#include <geometry_msgs/TransformStamped.h>
-
+#include<moveit_motion_planner/motion_planner.h>
+#include<capsicum_superellipsoid_detector/se_detector.h>
 #include <active_perception_planner/voxblox_map.h>
-#include<vector>
-#include <tf/transform_listener.h>
 
 
 
@@ -62,7 +67,7 @@ public:
 
   bool createSceneMapWithCompletedFruits(vpp_msgs::GetListInstancePointclouds& instcloud_srv);
 
-  bool moveToInterestedFruitObservationPose(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
+  bool moveToInterestedFruitObservationPose(const uint &fruit_id);
 
   bool startFollowFruit(const uint &fruit_id);
 
@@ -126,11 +131,14 @@ protected:
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
+  std::unique_ptr<tf::TransformListener> listener_;
+
+
   FruitMap fruit_map_;
   bool fruit_map_available_ = false;
   superellipsoid::DetectedFruit interested_fruit_;
 
-  double obs_z_plane_;
+  float obs_z_plane_;
 
   Eigen::Vector3d plane_point_, plane_normal_;
   int voxel_factor_, max_num_tries_;
@@ -144,6 +152,8 @@ protected:
 
   std::string surface_cloud_topic_;
 
+  bool follow_fruit_enabled_ = false;
+  bool fruit_est_initialised_ = false;
 
   //sensor_msgs::JointState
 
@@ -196,9 +206,13 @@ protected:
     return curr_est_interested_fruit_;
   }
 
-  inline void setCurrentEstimateOfTheInterestedFruit(const superellipsoid::DetectedFruit& fruit)
+  inline void setCurrentEstimateOfTheInterestedFruit(const superellipsoid::DetectedFruit& fruit, bool fruit_est_initialised = true)
   {
-    prev_est_interested_fruit_ = curr_est_interested_fruit_;
+    if(fruit_est_initialised)
+      prev_est_interested_fruit_ = curr_est_interested_fruit_;
+    else
+      prev_est_interested_fruit_ = fruit;
+
     curr_est_interested_fruit_ = fruit;
   }
 

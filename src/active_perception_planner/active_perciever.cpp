@@ -17,6 +17,12 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz::CommandPlanner");
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
   nhp_.param<float>("allowed_planning_time", allowed_planning_time_, 5.0);
+  nhp_.param<std::string>("planning_group_name", planning_group_name_, "head_arm");
+  nhp_.param<std::string>("base_frame", base_frame_, "world");
+  nhp_.param<std::string>("tip_frame", tip_frame_, "camera_color_optical_frame");
+  nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
+  nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
+
 
   motion_planner_ = std::make_shared<motion_planning::MotionPlanner>(planning_group_name_, nh_);
   motion_planner_->initialisePlanner(moveit_planner_type_, motion_type_, planning_group_name_);
@@ -34,6 +40,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
 
   pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, true);
 
+  listener_ = std::make_unique<tf::TransformListener>();
 
 }
 
@@ -208,9 +215,9 @@ bool ActivePerciever::findOptimumFruitObservationPoses(std::deque<geometry_msgs:
   return success;
 }
 
-bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id, const geometry_msgs::Point& fruit_centre)
+bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 {
-  if(retrieveInterestedFruit(fruit_id, fruit_centre) == false)
+  if(retrieveInterestedFruit(fruit_id) == false)
   {
     ROS_WARN_STREAM("Could not retrive fruit with fruit id "<<int(fruit_id));
     return false;
@@ -235,8 +242,22 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id,
 
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
-  if(retrieveInterestedFruit(fruit_id))
-  return true;
+  if(moveToInterestedFruitObservationPose(fruit_id))
+  {
+    if(fruit_est_initialised_ == false)
+    {
+      setCurrentEstimateOfTheInterestedFruit(interested_fruit_);
+      fruit_est_initialised_ = true;
+    }
+    follow_fruit_enabled_ = true;
+
+    if(fruit_est_initialised_ && timer_fruit_follower_.hasStarted() == false)
+    {
+      timer_fruit_follower_.start();
+    }
+    return true;
+  }
+  return false;
 }
 
 bool ActivePerciever::stopFollowFruit()
@@ -246,6 +267,9 @@ bool ActivePerciever::stopFollowFruit()
   {
     sleep(0.5);
   }
+  follow_fruit_enabled_ = false;
+  interested_fruit_ = superellipsoid::DetectedFruit();
+  fruit_est_initialised_ = false;
   return true;
 }
 
@@ -311,10 +335,11 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
     {
       //interested_fruit_detections_buffer_.push_back(possible_same_fruit);
       //interested_fruit_detections_buffer_.pop_back();
-      curr_est_interested_fruit_ = possible_same_fruit;
+      setCurrentEstimateOfTheInterestedFruit(possible_same_fruit);
       return true;
     }
   }
+  ROS_ERROR("Could not detect fruit in the curr surface cloud");
   return false;
 }
 
@@ -332,6 +357,9 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getasRosMsgType(const superel
 
 void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2 &pc_msg)
 {
+  if(follow_fruit_enabled_ == false)
+    return;
+
   if(updateInterestedFruit(pc_msg) == false)
     return;
 
