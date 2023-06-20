@@ -63,6 +63,7 @@
   <depend>voxblox</depend>
   <depend>voxblox_msgs</depend>
   <depend>voxblox_ros</depend>
+  <depend>moveit_motion_planner</depend>
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

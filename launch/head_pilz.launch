@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch>
+<arg name="debug" default="false" />
+<arg unless="$(arg debug)" name="launch_prefix" value="" />
+<arg if="$(arg debug)"     name="launch_prefix" value="gdb -ex run --args" />
+
+<node name="active_perciever" pkg="active_perception_planner" type="active_perciever" output="screen"  launch-prefix="$(arg launch_prefix)">
+</node>
+</launch>
+

@@ -4,6 +4,8 @@ project(active_perception_planner)
 ## Compile as C++17
 add_compile_options(-std=c++17)
 
+set(CMAKE_BUILD_TYPE "RelWithDebugInfo")
+
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
@@ -149,7 +151,7 @@ add_executable(${PROJECT_NAME}_node src/${PROJECT_NAME}/active_perception_interf
 ## The above recommended prefix causes long target names, the following renames the
 ## target back to the shorter version for ease of user use
 ## e.g. "rosrun someones_pkg node" instead of "rosrun someones_pkg someones_pkg_node"
-set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME node PREFIX "")
+set_target_properties(${PROJECT_NAME}_node PROPERTIES OUTPUT_NAME active_perciever PREFIX "")
 
 ## Add cmake target dependencies of the executable
 ## same as for the library above

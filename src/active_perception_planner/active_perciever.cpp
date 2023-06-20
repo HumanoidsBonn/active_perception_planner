@@ -10,26 +10,52 @@
 using namespace active_perception_planner;
 using namespace utils;
 
-ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), motion_type_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
+ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), planner_id_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
   tf_buffer_(ros::Duration(30)),
   tf_listener_(tf_buffer_)
 {
-  nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz::CommandPlanner");
+  nhp_.param<bool>("move_group_interface_enabled", is_move_group_used_, true);
+  nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz_industrial_motion_planner");
+  nhp_.param<std::string>("planner_id", planner_id_, "PTP");
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
   nhp_.param<float>("allowed_planning_time", allowed_planning_time_, 5.0);
-  nhp_.param<std::string>("planning_group_name", planning_group_name_, "head_arm");
+  nhp_.param<std::string>("planning_group_name", planning_group_name_, "head");
   nhp_.param<std::string>("base_frame", base_frame_, "world");
   nhp_.param<std::string>("tip_frame", tip_frame_, "camera_color_optical_frame");
   nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
+  nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"obs_pose_1", "obs_pose_2", "obs_pose_3", "head_home"});
 
+  mapping_motion_type_ = "PTP";
+  if(is_move_group_used_)
+  {
+    ROS_INFO("MOVE_GROUP PLANNER");
+    auto base_ptr = std::make_shared<motion_planning::MoveGroupPlanner>(planning_group_name, nh_);
+    motion_planner_ = std::static_pointer_cast<motion_planning::MotionPlanner>(base_ptr);
 
-  motion_planner_ = std::make_shared<motion_planning::MotionPlanner>(planning_group_name_, nh_);
-  motion_planner_->initialisePlanner(moveit_planner_type_, motion_type_, planning_group_name_);
-  motion_planner_->initialiseMotionPlanRequest(motion_type_, planning_group_name_, num_planning_attempts_, allowed_planning_time_);
-  reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/reset_map");
-  get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("get_list_instance_pointclouds");
-  get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("get_scene_pointcloud");
+    std::vector<moveit_msgs::PlannerInterfaceDescription> inter_desc_vec;
+    bool check = motion_planner_->getMoveGroupHandle()->getInterfaceDescriptions(inter_desc_vec);
+    for (const auto& inter_desc: inter_desc_vec)
+    {
+      ROS_INFO_STREAM("Planner Interfaces: "<<inter_desc); 
+    }
+    motion_planner_->getMoveGroupHandle()->setPlanningPipelineId("pilz_industrial_motion_planner");
+    motion_planner_->getMoveGroupHandle()->setPlannerId(planner_id_);
+
+  }
+  else
+  {
+    ROS_INFO("Pilz Planner");
+    motion_planner_ = std::make_shared<motion_planning::MotionPlanner>(planning_group_name_, nh_);
+    motion_planner_->initialisePlanner(moveit_planner_type_, planner_id_, planning_group_name_);
+    motion_planner_->initialiseMotionPlanRequest(planner_id_, planning_group_name_, num_planning_attempts_, allowed_planning_time_);
+  }
+
+  se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
+  
+  reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
+  get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
+  get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("/gsm_node/get_scene_pointcloud");
 
   timer_fruit_follower_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
   timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
@@ -42,6 +68,8 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
 
   listener_ = std::make_unique<tf::TransformListener>();
 
+  timer_status_publisher_.start();
+  ROS_INFO("ActivePerciever");
 }
 
 ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
@@ -54,11 +82,11 @@ bool ActivePerciever::clearSceneMap()
   fruit_map_.clear();
   fruit_map_available_ = false;
   std_srvs::Empty empty_srv;
-  if (!reset_map_client_.call(empty_srv))
-  {
-      ROS_ERROR("Failed to call reset vpp map service");
-      return false;
-  }
+  // if (!reset_map_client_.call(empty_srv))
+  // {
+  //     ROS_ERROR("Failed to call reset vpp map service");
+  //     return false;
+  // }
   return true;
 }
 
@@ -70,11 +98,11 @@ bool ActivePerciever::performLocalMappingMotion()
     return false; //getActivePercieverStatus();
   }
 
-  if(moveToInitialMappingPose() == false)
-  {
-    setActivePercieverStatus(ERROR_MOVE_TO_INIT_MAPPING_POSE);
-    return false; //getActivePercieverStatus();
-  }
+  // if(moveToInitialMappingPose() == false)
+  // {
+  //   setActivePercieverStatus(ERROR_MOVE_TO_INIT_MAPPING_POSE);
+  //   return false; //getActivePercieverStatus();
+  // }
 
   for(const auto& next_pose: mapping_poses_list_)
   {
@@ -98,7 +126,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     setActivePercieverStatus(ERROR_MAP_GENERATION);
     return false;
   }
-
+  ROS_WARN("GetScenePointcloud success ");
   instcloud_srv.request.get_specific_instances = false;
   if(!get_instanceclouds_client_.call(instcloud_srv))
   {
@@ -106,6 +134,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     setActivePercieverStatus(ERROR_MAP_GENERATION);
     return false;
   }
+  ROS_WARN("GetListInstancePointclouds success ");
   if(instcloud_srv.response.instance_clouds_with_centroid.empty())
   {
     ROS_ERROR("Failed to detect fruits in the 3D map");
@@ -113,23 +142,33 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     return false;
   }
   bool atleast_one_completed_fruit = false;
+  int num_fruits = 0;
   for(const auto& inst_element:instcloud_srv.response.instance_clouds_with_centroid)
   {
     superellipsoid::DetectedFruit fruit;
+    ROS_DEBUG("0");
     pcl::fromROSMsg(inst_element.pointcloud, *(fruit.observed_fruit_shape));
     fruit.fruit_id = inst_element.instance_id;
+    ROS_DEBUG("1");
     bool success = se_detector_->completeFruitShape(fruit);
     if(success)
+    {
+      num_fruits++;
+      ROS_WARN_STREAM("Completed Fruit: "<<fruit.fruit_id);
       atleast_one_completed_fruit = true;
-    fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
+      fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
+    }
   }
+  ROS_DEBUG("3");
   if(atleast_one_completed_fruit == false)
   {
     setActivePercieverStatus(ERROR_SHAPE_COMPLETION);
     return false;
   }
+  ROS_DEBUG("4");
   fruit_map_available_ = true;
   setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
+  ROS_WARN_STREAM("Fruit Generation success with "<<num_fruits<<" completed");
   return true;
 }
 
@@ -143,18 +182,23 @@ bool ActivePerciever::checkManipulationArmsStowed()
 
 bool ActivePerciever::moveToInitialMappingPose()
 {
-  motion_planner_->clearMotionPlanRequestConstraints();
-  return motion_planner_->moveNamedTarget("initial_mapping_pose", motion_type_);
+  if(is_move_group_used_ == false)
+    motion_planner_->clearMotionPlanRequestConstraints();
+  return motion_planner_->moveNamedTarget("initial_mapping_pose", planner_id_);
 
 }
 
 bool ActivePerciever::moveToNextMappingPose(const std::string& next_pose)
 {
-  motion_planner_->clearMotionPlanRequestConstraints();
+  if(is_move_group_used_ == false)
+    motion_planner_->clearMotionPlanRequestConstraints();
+  
+  ROS_WARN_STREAM("mapping_motion_type_"<<mapping_motion_type_);
   bool success = motion_planner_->moveNamedTarget(next_pose, mapping_motion_type_);
   if(success == false && mapping_motion_type_ == "LIN" && attempt_with_ptp_on_failure_ == true)
   {
-    return motion_planner_->moveNamedTarget(next_pose, motion_type_);
+    ROS_WARN_STREAM("mapping_motion_type_"<<planner_id_);
+    return motion_planner_->moveNamedTarget(next_pose, planner_id_);
   }
   return success;
 }
@@ -352,6 +396,19 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getasRosMsgType(const superel
   pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
   fruit_msg.fruit_pose.position = fruit.fruit_centre;
 
+  return fruit_msg;
+}
+
+oc2_interface_msgs::InterestedFruit ActivePerciever:: getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit)
+{
+  oc2_interface_msgs::InterestedFruit fruit_msg;
+
+  pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
+  pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
+  fruit_msg.fruit_pose.position = fruit.fruit_centre;
+
+  fruit_msg.header.frame_id = world_frame_;
+  fruit_msg.header.stamp = ros::Time::now();
   return fruit_msg;
 }
 

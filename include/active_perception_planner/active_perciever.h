@@ -11,7 +11,7 @@
 #include <tf/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
 
-
+#include<oc2_interface_msgs/InterestedFruit.h>
 #include<oc2_interface_msgs/DetectedFruits.h>
 #include<vpp_msgs/GetScenePointcloud.h>
 #include<vpp_msgs/GetListInstancePointclouds.h>
@@ -52,6 +52,24 @@ enum ActivePercieverStatus
 typedef std::map<uint, superellipsoid::DetectedFruit> FruitMap;
 typedef std::map<uint, superellipsoid::DetectedFruit>::iterator FruitMapIterator;
 
+struct InterestedFruit: public superellipsoid::DetectedFruit
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr current_observation;
+
+  InterestedFruit():superellipsoid::DetectedFruit(), current_observation(new pcl::PointCloud<pcl::PointXYZRGB>)
+  {
+  }
+
+  InterestedFruit(const superellipsoid::DetectedFruit& det_fruit):current_observation(new pcl::PointCloud<pcl::PointXYZRGB>)
+  {
+    this->valid_shape_completion_available = det_fruit.valid_shape_completion_available;
+    this->observed_fruit_shape = det_fruit.observed_fruit_shape;
+    this->completed_fruit_shape = det_fruit.completed_fruit_shape;
+    this->fruit_centre = det_fruit.fruit_centre;
+    this->observed_shape_centroid = det_fruit.observed_shape_centroid;
+  }
+};
+
 
 class ActivePerciever{
 
@@ -87,12 +105,16 @@ public:
 
   void receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2& pc_msg);
 
+  void receiveCameraPointCloudCallback(const sensor_msgs::PointCloud2& pc_msg);
+
 
 protected:
   ActivePercieverStatus status_;
   ros::NodeHandle nh_, nhp_;
 
   ros::Timer timer_fruit_follower_, timer_status_publisher_;
+
+  bool is_move_group_used_ = true;
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
@@ -110,7 +132,7 @@ protected:
   std::string tip_frame_;
 
   std::string moveit_planner_type_;
-  std::string motion_type_;
+  std::string planner_id_;
 
   int num_planning_attempts_;
   float allowed_planning_time_;
@@ -127,6 +149,7 @@ protected:
   ros::Publisher pub_interested_fruit_;
 
   ros::Subscriber sub_surface_cloud_;
+  ros::Subscriber sub_point_cloud_;
 
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
@@ -217,7 +240,7 @@ protected:
   }
 
   oc2_interface_msgs::DetectedFruit getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
-
+  oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
 };
 
 } // namespace active_perception_planner

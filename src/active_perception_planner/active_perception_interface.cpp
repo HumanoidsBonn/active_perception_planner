@@ -4,9 +4,13 @@ using namespace active_perception_planner;
 
 ActivePercieverInterface::ActivePercieverInterface():nhp_("~")
 {
-  srv_detect_fruits_ = nh_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
-  srv_detect_fruits_ = nh_.advertiseService("start_follow_fruit", &ActivePercieverInterface::processStartFollowFruitsServiceCallback, this);
-  srv_detect_fruits_ = nh_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
+  active_perciever_ = std::make_shared<active_perception_planner::ActivePerciever>(nhp_, std::string("head"), std::string("head_link_base"), std::string("head_link_eef"));
+  srv_detect_fruits_ = nhp_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
+  srv_start_follow_fruits_ = nhp_.advertiseService("start_follow_fruit", &ActivePercieverInterface::processStartFollowFruitsServiceCallback, this);
+  srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
+  pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
+  ROS_INFO_ONCE("ActivePercieverInterface");
+
 }
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
@@ -14,7 +18,7 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   if(active_perciever_->clearSceneMap() == false)
   {
     ROS_ERROR("Could not clear VPP Scene Map");
-    return false;
+    //return false;
   }
 
   if(active_perciever_->performLocalMappingMotion() == false)
@@ -30,7 +34,7 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   }
 
   res = getFruitMapAsSrvResponse();
-
+  publishVisualizations();
   return true;
 
 }
@@ -74,14 +78,33 @@ oc2_interface_msgs::DetectFruits::Response ActivePercieverInterface::getFruitMap
   return res;
 }
 
+void ActivePercieverInterface::publishVisualizations()
+{
+  FruitMap fruit_map   = active_perciever_->getFruitMap();
+  FruitMapIterator it;
+  pcl::PointCloud<pcl::PointXYZ>::Ptr debug_pc(new pcl::PointCloud<pcl::PointXYZ>);
+  sensor_msgs::PointCloud2 debug_pc_ros;
+  for(it = fruit_map.begin(); it != fruit_map.end(); ++it)
+  {
+    *(debug_pc) += *(it->second.completed_fruit_shape);
+  }
+  pcl::toROSMsg(*debug_pc, debug_pc_ros);
+  debug_pc_ros.header.stamp = ros::Time::now();
+  debug_pc_ros.header.frame_id = "world";
+
+  pub_superellipsoids_.publish(debug_pc_ros);
+}
+
 int main(int argc, char **argv)
 {
   ros::init(argc, argv, "active_perciever_node");
-  ros::NodeHandle nh;
-
+  ros::NodeHandle nh; 
+  ros::AsyncSpinner spinner(0);
   ActivePercieverInterface act_per_interface;
   ROS_INFO("Ready to Percieve.");
-  ros::spin();
+  spinner.start();
+
+  ros::waitForShutdown();
 
   return 0;
 }

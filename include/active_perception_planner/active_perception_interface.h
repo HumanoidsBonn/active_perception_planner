@@ -33,7 +33,12 @@ protected:
 
   std::shared_ptr<ActivePerciever> active_perciever_;
 
+  ros::Publisher pub_superellipsoids_;
+
   oc2_interface_msgs::DetectFruits::Response getFruitMapAsSrvResponse();
+
+  void publishVisualizations();
+
 
 };
 
