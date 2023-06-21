@@ -62,7 +62,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
 
   sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
 
-  pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("active_perciever_status", 1, true);
+  pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("status", 1, true);
 
   pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, true);
 
@@ -210,7 +210,7 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id, cons
   if(it != fruit_map_.end())
   {
    interested_fruit_ = it->second;
-   success = isFruitCentreSimilar(desired_fruit_centre, interested_fruit_.fruit_centre);
+   success = isFruitCentreSimilar(desired_fruit_centre, interested_fruit_.fruit_pose.position);
   }
   return success;
 }
@@ -230,9 +230,9 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 bool ActivePerciever::findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& optimum_poses)
 {
   Eigen::Vector3d ray_origin, ray_pt;
-  ray_origin(0) = interested_fruit_.fruit_centre.x;
-  ray_origin(1) = interested_fruit_.fruit_centre.y;
-  ray_origin(2) = interested_fruit_.fruit_centre.z;
+  ray_origin(0) = interested_fruit_.fruit_pose.position.x;
+  ray_origin(1) = interested_fruit_.fruit_pose.position.y;
+  ray_origin(2) = interested_fruit_.fruit_pose.position.z;
 
   ray_pt(0) = interested_fruit_.observed_shape_centroid.x;
   ray_pt(1) = interested_fruit_.observed_shape_centroid.y;
@@ -263,7 +263,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 {
   if(retrieveInterestedFruit(fruit_id) == false)
   {
-    ROS_WARN_STREAM("Could not retrive fruit with fruit id "<<int(fruit_id));
+    ROS_WARN_STREAM("Could not retrieve fruit with fruit id "<<int(fruit_id));
     return false;
   }
   //std::vector<geometry_msgs::Pose> view_poses;
@@ -332,7 +332,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 
 bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold)
 {
-  return isFruitCentreSimilar(prev_det.fruit_centre, potential_candidate.fruit_centre, center_threshold);
+  return isFruitCentreSimilar(prev_det.fruit_pose.position, potential_candidate.fruit_pose.position, center_threshold);
 }
 
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl)
@@ -394,7 +394,7 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getasRosMsgType(const superel
   fruit_msg.fruit_id = fruit.fruit_id;
   pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
   pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
-  fruit_msg.fruit_pose.position = fruit.fruit_centre;
+  fruit_msg.fruit_pose = fruit.fruit_pose;
 
   return fruit_msg;
 }
@@ -405,7 +405,7 @@ oc2_interface_msgs::InterestedFruit ActivePerciever:: getInterestedFruitAsRosMsg
 
   pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
   pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
-  fruit_msg.fruit_pose.position = fruit.fruit_centre;
+  fruit_msg.fruit_pose = fruit.fruit_pose;
 
   fruit_msg.header.frame_id = world_frame_;
   fruit_msg.header.stamp = ros::Time::now();

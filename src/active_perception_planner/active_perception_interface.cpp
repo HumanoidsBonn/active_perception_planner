@@ -68,7 +68,7 @@ oc2_interface_msgs::DetectFruits::Response ActivePercieverInterface::getFruitMap
     {
       oc2_interface_msgs::DetectedFruit fruit;
       fruit.fruit_id = it->second.fruit_id;
-      fruit.fruit_pose.position = it->second.fruit_centre;
+      fruit.fruit_pose = it->second.fruit_pose;
       pcl::toROSMsg(*(it->second.observed_fruit_shape), fruit.observed_fruit);
       pcl::toROSMsg(*(it->second.completed_fruit_shape), fruit.predicted_fruit);
 

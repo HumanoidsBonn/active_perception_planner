@@ -65,7 +65,7 @@ struct InterestedFruit: public superellipsoid::DetectedFruit
     this->valid_shape_completion_available = det_fruit.valid_shape_completion_available;
     this->observed_fruit_shape = det_fruit.observed_fruit_shape;
     this->completed_fruit_shape = det_fruit.completed_fruit_shape;
-    this->fruit_centre = det_fruit.fruit_centre;
+    this->fruit_pose = det_fruit.fruit_pose;
     this->observed_shape_centroid = det_fruit.observed_shape_centroid;
   }
 };
