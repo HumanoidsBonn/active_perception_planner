@@ -64,6 +64,12 @@
   <depend>voxblox_msgs</depend>
   <depend>voxblox_ros</depend>
   <depend>moveit_motion_planner</depend>
+  <depend>tf2_ros</depend>
+  <depend>tf2_geometry_msgs</depend>
+  <depend>tf2_sensor_msgs</depend>
+  <depend>tf2</depend>
+  <depend>tf2_tools</depend>
+
 
   <!-- The export tag contains other, unspecified, tags -->
   <export>

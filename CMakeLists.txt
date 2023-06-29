@@ -4,7 +4,7 @@ project(active_perception_planner)
 ## Compile as C++17
 add_compile_options(-std=c++17)
 
-set(CMAKE_BUILD_TYPE "RelWithDebugInfo")
+set(CMAKE_BUILD_TYPE "Release")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -21,6 +21,11 @@ find_package(catkin REQUIRED
     voxblox
     voxblox_msgs
     voxblox_ros
+    tf2_ros
+    tf2_geometry_msgs
+    tf2_sensor_msgs
+    tf2
+    tf2_tools
 
 )
 
@@ -137,10 +142,14 @@ add_library(${PROJECT_NAME}
     src/${PROJECT_NAME}/voxblox_map.cpp
 )
 
+target_link_libraries(${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+)
+
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
 ## either from message generation or dynamic reconfigure
-# add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(${PROJECT_NAME} ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Declare a C++ executable
 ## With catkin_make all packages are built within a single CMake context

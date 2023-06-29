@@ -20,7 +20,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<int>("num_planning_attempts", num_planning_attempts_, 2);
   nhp_.param<float>("allowed_planning_time", allowed_planning_time_, 5.0);
   nhp_.param<std::string>("planning_group_name", planning_group_name_, "head");
-  nhp_.param<std::string>("base_frame", base_frame_, "world");
+  nhp_.param<std::string>("base_frame", base_frame_, "trolley_local_link");
   nhp_.param<std::string>("tip_frame", tip_frame_, "camera_color_optical_frame");
   nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
@@ -154,10 +154,14 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     if(success)
     {
       num_fruits++;
-      ROS_WARN_STREAM("Completed Fruit: "<<fruit.fruit_id);
+      ROS_INFO_STREAM("Fruit with successful shape completion: "<<fruit.fruit_id);
       atleast_one_completed_fruit = true;
-      fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
     }
+    else
+    {
+      ROS_WARN_STREAM("Fruit with failed shape completion: "<<fruit.fruit_id);
+    }
+    fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
   }
   ROS_DEBUG("3");
   if(atleast_one_completed_fruit == false)
@@ -229,6 +233,7 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 
 bool ActivePerciever::findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& optimum_poses)
 {
+
   Eigen::Vector3d ray_origin, ray_pt;
   ray_origin(0) = interested_fruit_.fruit_pose.position.x;
   ray_origin(1) = interested_fruit_.fruit_pose.position.y;
@@ -266,6 +271,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
     ROS_WARN_STREAM("Could not retrieve fruit with fruit id "<<int(fruit_id));
     return false;
   }
+  return true;
   //std::vector<geometry_msgs::Pose> view_poses;
   std::deque<geometry_msgs::Pose> view_poses;
   if(findOptimumFruitObservationPoses(view_poses) == false)
@@ -307,10 +313,10 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 bool ActivePerciever::stopFollowFruit()
 {
   timer_fruit_follower_.stop();
-  while(timer_fruit_follower_.hasStarted() == false)
-  {
-    sleep(0.5);
-  }
+//  while(timer_fruit_follower_.hasStarted() == false)
+//  {
+//    sleep(0.5);
+//  }
   follow_fruit_enabled_ = false;
   interested_fruit_ = superellipsoid::DetectedFruit();
   fruit_est_initialised_ = false;
@@ -327,7 +333,8 @@ void ActivePerciever::publishStatusTimerCallback(const ros::TimerEvent&)
 
 void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 {
-
+  auto fruit= getasRosMsgType(interested_fruit_);
+  pub_interested_fruit_.publish(fruit);
 }
 
 bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold)

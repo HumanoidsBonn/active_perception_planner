@@ -1,8 +1,10 @@
 #include <active_perception_planner/active_perception_interface.h>
-
+#include "tf2_geometry_msgs/tf2_geometry_msgs.h"
+#include <tf2/convert.h>
+#include<tf2_sensor_msgs/tf2_sensor_msgs.h>
 using namespace active_perception_planner;
 
-ActivePercieverInterface::ActivePercieverInterface():nhp_("~")
+ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBuffer_)
 {
   active_perciever_ = std::make_shared<active_perception_planner::ActivePerciever>(nhp_, std::string("head"), std::string("head_link_base"), std::string("head_link_eef"));
   srv_detect_fruits_ = nhp_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
@@ -15,24 +17,28 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~")
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
 {
+  
   if(active_perciever_->clearSceneMap() == false)
   {
     ROS_ERROR("Could not clear VPP Scene Map");
-    //return false;
+    res.success = false;
+    return true;
   }
 
   if(active_perciever_->performLocalMappingMotion() == false)
   {
     ROS_ERROR("Could not perform local mapping motion");
-    return false;
+    res.success = false;
+    return true;
   }
   vpp_msgs::GetListInstancePointclouds instcloud_srv;
   if(active_perciever_->createSceneMapWithCompletedFruits(instcloud_srv) == false)
   {
     ROS_ERROR("Could not create voxblox plus plus map of instance fruits");
-    return false;
+    res.success = false;
+    return true;
   }
-
+  res.success = true;
   res = getFruitMapAsSrvResponse();
   publishVisualizations();
   return true;
@@ -42,12 +48,14 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)
 {
   active_perciever_->startFollowFruit(req.fruit_id);
+  res.success = true;
   return true;
 }
 
 bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request &req, oc2_interface_msgs::StopFollowFruit::Response &res)
 {
   active_perciever_->stopFollowFruit();
+  res.success = true;
   return true;
 }
 
@@ -72,6 +80,7 @@ oc2_interface_msgs::DetectFruits::Response ActivePercieverInterface::getFruitMap
       pcl::toROSMsg(*(it->second.observed_fruit_shape), fruit.observed_fruit);
       pcl::toROSMsg(*(it->second.completed_fruit_shape), fruit.predicted_fruit);
 
+      res.detected_fruits.header.frame_id =  "trolley_local_link";
       res.detected_fruits.detected_fruits.push_back(fruit);
     }
   }
@@ -83,16 +92,30 @@ void ActivePercieverInterface::publishVisualizations()
   FruitMap fruit_map   = active_perciever_->getFruitMap();
   FruitMapIterator it;
   pcl::PointCloud<pcl::PointXYZ>::Ptr debug_pc(new pcl::PointCloud<pcl::PointXYZ>);
-  sensor_msgs::PointCloud2 debug_pc_ros;
+  sensor_msgs::PointCloud2 debug_pc_ros, cloud_out;
   for(it = fruit_map.begin(); it != fruit_map.end(); ++it)
   {
     *(debug_pc) += *(it->second.completed_fruit_shape);
   }
   pcl::toROSMsg(*debug_pc, debug_pc_ros);
   debug_pc_ros.header.stamp = ros::Time::now();
-  debug_pc_ros.header.frame_id = "world";
+  debug_pc_ros.header.frame_id = "trolley_local_link";
 
-  pub_superellipsoids_.publish(debug_pc_ros);
+
+  geometry_msgs::TransformStamped transformStamped;
+  try
+  {
+    transformStamped = tfBuffer_.lookupTransform("world","trolley_local_link",
+            ros::Time(0));
+    std::cout << transformStamped << std::endl;
+    tf2::doTransform(debug_pc_ros, cloud_out, transformStamped);
+    pub_superellipsoids_.publish(cloud_out);
+  }
+  catch (tf2::TransformException &ex)
+  {
+    ROS_ERROR("%s", ex.what());
+  }
+
 }
 
 int main(int argc, char **argv)
