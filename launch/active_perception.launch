@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch>
+<include file="$(dirname)/planner.launch"/>
+<include file="$(find yolo_segmentation_ros)/launch/start.launch"/>
+
+</launch>
+

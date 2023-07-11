@@ -7,6 +7,9 @@
 #include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 
+#include "yaml-cpp/yaml.h"
+
+
 using namespace active_perception_planner;
 using namespace utils;
 
@@ -24,7 +27,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::string>("tip_frame", tip_frame_, "camera_color_optical_frame");
   nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
-  nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"obs_pose_1", "obs_pose_2", "obs_pose_3", "head_home"});
+  nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
 
   mapping_motion_type_ = "PTP";
   if(is_move_group_used_)
@@ -79,19 +82,46 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 
 bool ActivePerciever::clearSceneMap()
 {
+  std_srvs::Empty empty_srv;
+  if(fruit_map_available_)
+  {
+    // if (!reset_map_client_.call(empty_srv))
+    // {
+    //     ROS_ERROR("Failed to call reset vpp map service");
+    //     //return false;
+    // }
+  }
   fruit_map_.clear();
   fruit_map_available_ = false;
-  std_srvs::Empty empty_srv;
-  // if (!reset_map_client_.call(empty_srv))
-  // {
-  //     ROS_ERROR("Failed to call reset vpp map service");
-  //     return false;
-  // }
   return true;
 }
 
 bool ActivePerciever::performLocalMappingMotion()
 {
+//  auto config_package_path_ = ros::package::getPath("active_perception_planner");
+//  std::string config_filepath = config_package_path_ + "/config/" + "planner.yaml";
+
+//  YAML::Node config_yaml = YAML::LoadFile(config_filepath);
+
+//  bool poses_list_found = false;
+//  int i = 0;
+//  for (YAML::const_iterator it = config_yaml.begin(); it != config_yaml.end(); it++)
+//  {
+//    ROS_INFO_STREAM("YAML Node No. "<<i<<"\t Name: "<<it->first.as<std::string>());
+//    i++;
+//    YAML::Node configs = it->second;
+//    if(auto it1->first.as<std::string>() == "pose_list")
+//    {
+//      poses_list_found = true;
+//      mapping_poses_list_ = it->second.as<std::vector<std::string>>();
+//      ROS_INFO_STREAM("Mapping poses list: "<<mapping_poses_list_[0]);
+//    }
+//  }
+//  if(!poses_list_found)
+//  {
+//    ROS_ERROR("Poses list not found in planner.yaml");
+//  }
+
   if(checkManipulationArmsStowed() == false)
   {
     setActivePercieverStatus(ERROR_MANIP_ARMS_NOT_STOWED);
@@ -111,6 +141,7 @@ bool ActivePerciever::performLocalMappingMotion()
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
+    sleep(3.0);
   }
   return true; //getActivePercieverStatus();
 }
@@ -188,7 +219,7 @@ bool ActivePerciever::moveToInitialMappingPose()
 {
   if(is_move_group_used_ == false)
     motion_planner_->clearMotionPlanRequestConstraints();
-  return motion_planner_->moveNamedTarget("initial_mapping_pose", planner_id_);
+  return motion_planner_->moveNamedTarget("transport_pose", planner_id_);
 
 }
 

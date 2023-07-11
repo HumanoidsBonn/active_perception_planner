@@ -5,6 +5,7 @@
 #include "oc2_interface_msgs/DetectFruits.h"
 #include "oc2_interface_msgs/StartFollowFruit.h"
 #include "oc2_interface_msgs/StopFollowFruit.h"
+#include "oc2_interface_msgs/SaveJointState.h"
 
 #include <tf2_ros/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
@@ -26,12 +27,14 @@ public:
 
   bool processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request& req, oc2_interface_msgs::StopFollowFruit::Response& res);
 
+  bool processSaveJointStatesCallback(oc2_interface_msgs::SaveJointState::Request& req, oc2_interface_msgs::SaveJointState::Response& res);
+
 
 protected:
 
   ros::NodeHandle nh_, nhp_;
 
-  ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_stop_follow_fruits_;
+  ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_stop_follow_fruits_, srv_save_js_;
 
   std::shared_ptr<ActivePerciever> active_perciever_;
 
@@ -43,6 +46,10 @@ protected:
 
   tf2_ros::Buffer tfBuffer_;
   tf2_ros::TransformListener tfListener_;
+
+  std::string config_package_path_;
+
+  void loadJointStatesasRememberedJointValues();
 
 };
 

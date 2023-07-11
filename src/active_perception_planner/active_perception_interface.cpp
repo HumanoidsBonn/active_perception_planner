@@ -2,6 +2,9 @@
 #include "tf2_geometry_msgs/tf2_geometry_msgs.h"
 #include <tf2/convert.h>
 #include<tf2_sensor_msgs/tf2_sensor_msgs.h>
+#include <ros/package.h>
+#include "yaml-cpp/yaml.h"
+
 using namespace active_perception_planner;
 
 ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBuffer_)
@@ -10,9 +13,21 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_detect_fruits_ = nhp_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
   srv_start_follow_fruits_ = nhp_.advertiseService("start_follow_fruit", &ActivePercieverInterface::processStartFollowFruitsServiceCallback, this);
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
-  pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
-  ROS_INFO_ONCE("ActivePercieverInterface");
+  srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
+  pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
+
+  std::string config_package;
+  nhp_.param<std::string>("config_package", config_package, "active_perception_planner");
+  config_package_path_ = ros::package::getPath(config_package);
+
+  loadJointStatesasRememberedJointValues();
+
+  //  if(active_perciever_->moveToInitialMappingPose() == false)
+//  {
+//   throw std::runtime_error("Cannot move head arm to transport pose");
+//  }
+  ROS_INFO_ONCE("ActivePercieverInterface");
 }
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
@@ -115,6 +130,66 @@ void ActivePercieverInterface::publishVisualizations()
   {
     ROS_ERROR("%s", ex.what());
   }
+
+}
+
+void ActivePercieverInterface::loadJointStatesasRememberedJointValues()
+{
+  std::string poses_filepath = config_package_path_ + "/config/" + "head_joint_states.yaml";
+
+  YAML::Node config = YAML::LoadFile(poses_filepath);
+
+  if(config.IsMap())
+  {
+    for(YAML::const_iterator it=config.begin();it!=config.end();++it)
+    {
+      std::vector<double> joint_values = it->second.as<std::vector<double>>();
+      active_perciever_->getMoveGroupHandle()->rememberJointValues(it->first.as<std::string>(), joint_values);
+    }
+  }
+  else
+  {
+    ROS_ERROR("YAML File not recongized as a map");
+  }
+
+}
+
+bool ActivePercieverInterface::processSaveJointStatesCallback(oc2_interface_msgs::SaveJointState::Request& req, oc2_interface_msgs::SaveJointState::Response& res)
+{
+  std::string poses_filepath = config_package_path_ + "/config/" + "head_joint_states.yaml";
+  std::map< std::string, std::vector< double > > remembered_map = active_perciever_->getMoveGroupHandle()->getRememberedJointValues();
+  auto it = remembered_map.find(req.name);
+  if(it !=remembered_map.end())
+  {
+    req.name = req.name + "_" + std::to_string(round(ros::Time::now().toSec()));
+  }
+  active_perciever_->getMoveGroupHandle()->rememberJointValues(req.name);
+  std::map< std::string, std::vector< double > > remembered_map_new = active_perciever_->getMoveGroupHandle()->getRememberedJointValues();
+
+
+  YAML::Emitter out;
+//  for(auto it = remembered_map_new.begin(); it !=remembered_map_new.end(); ++it)
+//  {
+//    out << YAML::BeginSeq;
+//    std::string name = it->first + ":\n";
+//    out << YAML::Literal<<name;
+//    out << it->second;
+//    out <<YAML::EndSeq;
+//  }
+  out << remembered_map_new;
+  assert(out.good());
+
+  std::ofstream file(poses_filepath, std::ios::trunc);
+  if (!file.is_open())
+  {
+    ROS_ERROR("Could not open file");
+    res.success = false;
+    return true;
+  }
+  file<<out.c_str();
+  file.close();
+  res.success = true;
+  return true;
 
 }
 

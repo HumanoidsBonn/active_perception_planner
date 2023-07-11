@@ -26,9 +26,10 @@ find_package(catkin REQUIRED
     tf2_sensor_msgs
     tf2
     tf2_tools
-
 )
 
+find_package(yaml-cpp REQUIRED)
+include_directories(${YAML_INCLUDE_DIRS})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
@@ -144,6 +145,7 @@ add_library(${PROJECT_NAME}
 
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
 )
 
 ## Add cmake target dependencies of the library

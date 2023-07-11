@@ -1,0 +1,6 @@
+active_perciever:
+  pose_list:
+    - init_pose
+    - obs_pose_303
+    - obs_pose_404
+    - init_pose

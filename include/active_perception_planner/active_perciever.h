@@ -38,10 +38,10 @@ enum ActivePercieverStatus
 
   FRUIT_MAP_GENERATION_SUCCESS = 4,
   FRUIT_FOLLOWING_IN_PROGRESS = 5,
-  PEDUNCLE_DETECTION_PROGRESS = 6,
+  PEDUNCLE_DETECTION_IN_PROGRESS = 6,
 
   ERROR_MANIP_ARMS_NOT_STOWED = -1,
-  ERROR_MOVE_TO_INIT_MAPPING_POSE = -2,
+  ERROR_MOVE_TO_TRANSPORT_POSE = -2,
   ERROR_LOCAL_MAPPING_MOTION = -3,
   ERROR_MAP_GENERATION = -4,
   ERROR_NO_FRUITS_IN_MAP = -5,
@@ -81,6 +81,8 @@ public:
 
   bool clearSceneMap();
 
+  bool moveToInitialMappingPose();
+
   bool performLocalMappingMotion();
 
   bool createSceneMapWithCompletedFruits(vpp_msgs::GetListInstancePointclouds& instcloud_srv);
@@ -106,6 +108,11 @@ public:
   void receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2& pc_msg);
 
   void receiveCameraPointCloudCallback(const sensor_msgs::PointCloud2& pc_msg);
+
+  std::shared_ptr<moveit::planning_interface::MoveGroupInterface> getMoveGroupHandle()
+  {
+      return motion_planner_->getMoveGroupHandle();
+  }
 
 
 protected:
@@ -187,7 +194,6 @@ protected:
   bool checkManipulationArmsStowed();
 
 
-  bool moveToInitialMappingPose();
   bool moveToNextMappingPose(const std::string &next_pose);
 
   inline void setActivePercieverStatus(const ActivePercieverStatus& status)
