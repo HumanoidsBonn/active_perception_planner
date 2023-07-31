@@ -15,6 +15,11 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
+  client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
+  client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
+  client_start_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
+  client_stop_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop");
+
   pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
 
   std::string config_package;
@@ -32,6 +37,8 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
 {
+  callEmptyService(client_start_depth_seg_);
+  callEmptyService(client_start_obj_det_);
   
   if(active_perciever_->clearSceneMap() == false)
   {
@@ -56,12 +63,16 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   res.success = true;
   res = getFruitMapAsSrvResponse();
   publishVisualizations();
+  callEmptyService(client_stop_depth_seg_);
+  callEmptyService(client_stop_obj_det_);
   return true;
 
 }
 
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)
 {
+  callEmptyService(client_start_depth_seg_);
+  callEmptyService(client_start_obj_det_);
   active_perciever_->startFollowFruit(req.fruit_id);
   res.success = true;
   return true;
@@ -70,6 +81,8 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
 bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request &req, oc2_interface_msgs::StopFollowFruit::Response &res)
 {
   active_perciever_->stopFollowFruit();
+  callEmptyService(client_stop_depth_seg_);
+  callEmptyService(client_stop_obj_det_);
   res.success = true;
   return true;
 }
@@ -191,6 +204,17 @@ bool ActivePercieverInterface::processSaveJointStatesCallback(oc2_interface_msgs
   res.success = true;
   return true;
 
+}
+
+bool ActivePercieverInterface::callEmptyService(ros::ServiceClient& client)
+{
+  std_srvs::Empty empty_srv;
+  if (!client.call(empty_srv))
+  {
+    ROS_ERROR("Failed to call service");
+    return false;
+  }
+  return true;
 }
 
 int main(int argc, char **argv)

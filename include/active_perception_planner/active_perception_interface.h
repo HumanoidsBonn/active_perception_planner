@@ -36,6 +36,8 @@ protected:
 
   ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_stop_follow_fruits_, srv_save_js_;
 
+  ros::ServiceClient client_start_depth_seg_, client_stop_depth_seg_, client_start_obj_det_, client_stop_obj_det_;
+
   std::shared_ptr<ActivePerciever> active_perciever_;
 
   ros::Publisher pub_superellipsoids_;
@@ -50,6 +52,9 @@ protected:
   std::string config_package_path_;
 
   void loadJointStatesasRememberedJointValues();
+
+  bool callEmptyService(ros::ServiceClient& client);
+
 
 };
 

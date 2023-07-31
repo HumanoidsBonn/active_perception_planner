@@ -150,14 +150,14 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
 {
   setActivePercieverStatus(FRUIT_MAP_GENERATION_IN_PROGRESS);
   fruit_map_.clear();
-  vpp_msgs::GetScenePointcloud get_scene_srv;
-  if(!get_scenecloud_client_.call(get_scene_srv))
-  {
-    ROS_ERROR("Failed to call GetScenePointcloud vpp map service");
-    setActivePercieverStatus(ERROR_MAP_GENERATION);
-    return false;
-  }
-  ROS_WARN("GetScenePointcloud success ");
+  // vpp_msgs::GetScenePointcloud get_scene_srv;
+  // if(!get_scenecloud_client_.call(get_scene_srv))
+  // {
+  //   ROS_ERROR("Failed to call GetScenePointcloud vpp map service");
+  //   setActivePercieverStatus(ERROR_MAP_GENERATION);
+  //   return false;
+  // }
+  // ROS_WARN("GetScenePointcloud success ");
   instcloud_srv.request.get_specific_instances = false;
   if(!get_instanceclouds_client_.call(instcloud_srv))
   {
