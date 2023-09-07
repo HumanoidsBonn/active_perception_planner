@@ -1,0 +1,11 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="enable_vpp" default="false"/>
+
+    <include file="$(find gsm_node)/launch/zed2i_sweet_pepper.launch"/>   
+    <!-- <include file="$(find depth_segmentation)/launch/zed2i_semantic_depth_segmentation.launch"/>    -->
+    <include file="$(find capsicum_superellipsoid_detector)/launch/zed2i_depth.launch"/>   
+    <include file="$(find yolo_segmentation_ros)/launch/start.launch"/>   
+
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find active_perception_planner)/config/rosbag.rviz"/>
+</launch>

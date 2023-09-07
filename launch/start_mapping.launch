@@ -2,4 +2,5 @@
 
 <launch>
     <include file="$(find gsm_node)/launch/zed2i_sweet_pepper.launch"/>
+    <include file="$(find depth_segmentation)/launch/realsense_semantic_depth_segmentation.launch"/>
 </launch>

@@ -3,8 +3,8 @@
     <node pkg="nodelet" type="nodelet" name="nodelet_manager" args="manager"/>
     
     <node pkg="nodelet" type="nodelet" name="point_cloud_xyzrgb" args="load depth_image_proc/point_cloud_xyzrgb nodelet_manager --no-bond">
-    <remap from="rgb/camera_info" to="/zed2i/rgb/camera_info" />
-    <remap from="rgb/image_rect_color" to="/zed2i/rgb/image_rect_color" />
+    <remap from="rgb/camera_info" to="/zed2i/left/camera_info" />
+    <remap from="rgb/image_rect_color" to="/zed2i/left/image_rect_color" />
     <!-- <remap from="rgb/image_rect_color/compressed" to="/camera/color/image_raw/compressed" /> -->
     <remap from="depth_registered/image_rect" to="/zed2i/depth/depth_registered" />
     <!-- <remap from="depth_registered/image_rect/compressedDepth" to="/camera/aligned_depth_to_color/image_raw/compressedDepth" /> -->

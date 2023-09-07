@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+
+<launch>
+    <include file="$(find depth_segmentation)/launch/zed2i_semantic_depth_segmentation.launch"/>
+    <include file="$(find depth_segmentation)/launch/realsense_semantic_depth_segmentation.launch"/>
+</launch>
