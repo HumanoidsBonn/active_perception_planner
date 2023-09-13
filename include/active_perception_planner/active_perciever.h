@@ -190,6 +190,9 @@ protected:
   std::vector<std::string> mapping_poses_list_; // list of named poses for exploring the current local poses
   std::string mapping_motion_type_;  // LIN for linear motion between 2 poses, and PTP for joint motion between 2 poses
 
+  double fruit_separation_xycenter_diff_;
+  double fruit_separation_z_diff_;
+
   bool enable_check_manipulation_arms_stowed_ = false;
   bool checkManipulationArmsStowed();
 

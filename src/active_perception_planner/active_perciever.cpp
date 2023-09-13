@@ -28,6 +28,9 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
   nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
+  nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
+  nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.04);
+
 
   mapping_motion_type_ = "PTP";
   if(is_move_group_used_)
@@ -255,9 +258,9 @@ int ActivePerciever::removeFalsePositives()
           double y_diff = abs(ref_center.y - compared_center.y);
           double x_diff = abs(ref_center.x - compared_center.x);
 
-          if(z_diff < 0.05)
+          if(z_diff < fruit_separation_z_diff_)
           {
-            if(sqrt(x_diff*x_diff + y_diff*y_diff) < 0.07)
+            if(sqrt(x_diff*x_diff + y_diff*y_diff) < fruit_separation_xycenter_diff_)
             {
               auto comp_obs_points = fruits_list_[j].observed_fruit_shape->size();
               if(comp_obs_points > ref_obs_points)
