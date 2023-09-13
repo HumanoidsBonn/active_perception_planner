@@ -163,7 +163,7 @@ protected:
 
   std::unique_ptr<tf::TransformListener> listener_;
 
-
+  std::vector<superellipsoid::DetectedFruit> fruits_list_;
   FruitMap fruit_map_;
   bool fruit_map_available_ = false;
   superellipsoid::DetectedFruit interested_fruit_;
@@ -195,6 +195,9 @@ protected:
 
 
   bool moveToNextMappingPose(const std::string &next_pose);
+
+  bool computeFruitShapes(const std::vector<vpp_msgs::InstancePointcloudwithCentroid>& instance_clouds_with_centroid);
+  int removeFalsePositives();
 
   inline void setActivePercieverStatus(const ActivePercieverStatus& status)
   {

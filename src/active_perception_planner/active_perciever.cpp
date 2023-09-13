@@ -98,29 +98,29 @@ bool ActivePerciever::clearSceneMap()
 
 bool ActivePerciever::performLocalMappingMotion()
 {
-//  auto config_package_path_ = ros::package::getPath("active_perception_planner");
-//  std::string config_filepath = config_package_path_ + "/config/" + "planner.yaml";
+  // auto config_package_path_ = ros::package::getPath("active_perception_planner");
+  // std::string config_filepath = config_package_path_ + "/config/" + "planner.yaml";
 
-//  YAML::Node config_yaml = YAML::LoadFile(config_filepath);
+  // YAML::Node config_yaml = YAML::LoadFile(config_filepath);
 
-//  bool poses_list_found = false;
-//  int i = 0;
-//  for (YAML::const_iterator it = config_yaml.begin(); it != config_yaml.end(); it++)
-//  {
-//    ROS_INFO_STREAM("YAML Node No. "<<i<<"\t Name: "<<it->first.as<std::string>());
-//    i++;
-//    YAML::Node configs = it->second;
-//    if(auto it1->first.as<std::string>() == "pose_list")
-//    {
-//      poses_list_found = true;
-//      mapping_poses_list_ = it->second.as<std::vector<std::string>>();
-//      ROS_INFO_STREAM("Mapping poses list: "<<mapping_poses_list_[0]);
-//    }
-//  }
-//  if(!poses_list_found)
-//  {
-//    ROS_ERROR("Poses list not found in planner.yaml");
-//  }
+  // bool poses_list_found = false;
+  // int i = 0;
+  // for (YAML::const_iterator it = config_yaml.begin(); it != config_yaml.end(); it++)
+  // {
+  //   ROS_INFO_STREAM("YAML Node No. "<<i<<"\t Name: "<<it->first.as<std::string>());
+  //   i++;
+  //   YAML::Node configs = it->second;
+  //   if(auto it1->first.as<std::string>() == "pose_list")
+  //   {
+  //     poses_list_found = true;
+  //     mapping_poses_list_ = it->second.as<std::vector<std::string>>();
+  //     ROS_INFO_STREAM("Mapping poses list: "<<mapping_poses_list_[0]);
+  //   }
+  // }
+  // if(!poses_list_found)
+  // {
+  //   ROS_ERROR("Poses list not found in planner.yaml");
+  // }
 
   if(checkManipulationArmsStowed() == false)
   {
@@ -144,6 +144,140 @@ bool ActivePerciever::performLocalMappingMotion()
     sleep(3.0);
   }
   return true; //getActivePercieverStatus();
+}
+
+bool ActivePerciever::computeFruitShapes(const std::vector<vpp_msgs::InstancePointcloudwithCentroid>& instance_clouds_with_centroid)
+{
+  bool atleast_one_completed_fruit = false;
+  int num_fruits = 0;
+  fruits_list_.clear();
+  for(const auto& inst_element:instance_clouds_with_centroid)
+  {
+    superellipsoid::DetectedFruit fruit;
+    ROS_DEBUG("0");
+    pcl::fromROSMsg(inst_element.pointcloud, *(fruit.observed_fruit_shape));
+    fruit.fruit_id = inst_element.instance_id;
+    ROS_DEBUG("1");
+    bool success = se_detector_->completeFruitShape(fruit);
+    if(success)
+    {
+      num_fruits++;
+      ROS_INFO_STREAM("Fruit with successful shape completion: "<<fruit.fruit_id);
+      atleast_one_completed_fruit = true;
+    }
+    else
+    {
+      ROS_WARN_STREAM("Fruit with failed shape completion: "<<fruit.fruit_id);
+    }
+    fruits_list_.push_back(fruit);
+    //fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
+  }
+  ROS_WARN_STREAM("Fruit Shape Completion success with "<<fruits_list_.size()<<" completed");
+  return atleast_one_completed_fruit;
+}
+/*bool test()
+{
+  int main()
+{
+    std::vector<double> a = {1, 2, 5, 4, 3, 5.002, 2.005, 6, 3, 1.995, 10, 10.001, 10};
+    std::vector<int> indices_to_remove;
+    std::vector<int> indices_to_add;
+    std::vector<double> b;
+    for(int i = 0; i < a.size(); ++i)
+    {
+        std::cout<<"--------------I: "<<i<<std::endl;
+        if((std::find(indices_to_remove.begin(), indices_to_remove.end(), i) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), i) == indices_to_add.end()))
+        {
+            std::cout<<"entered"<<std::endl;
+            int bigger_fruit_index = i;
+            auto bigger_no = a[bigger_fruit_index];
+            for(int j = i+1;  j < a.size(); ++j)
+            {
+                std::cout<<"--------------J: "<<j<<std::endl;
+                if((std::find(indices_to_remove.begin(), indices_to_remove.end(), j) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), j) == indices_to_add.end()))
+                {
+                    std::cout<<"entered"<<std::endl;
+                    auto smaller_fruit_index = j;
+                    auto smaller_no = a[smaller_fruit_index];
+                    auto diff = smaller_no - bigger_no;
+                    if (abs(diff) < 0.1)
+                    {
+                        std::cout<<"comparison"<<std::endl;
+                        if(diff > 0)
+                        {
+                            std::cout<<"swap"<<std::endl;
+                            smaller_fruit_index = bigger_fruit_index;
+                            bigger_fruit_index = j;
+                        }
+                    std::cout<<"------------------------------------------------"<<std::endl;
+                    std::cout<<"Bigger number: "<<a[bigger_fruit_index]<<" Smaller no: "<<a[smaller_fruit_index]<<std::endl;
+                    std::cout<<"Removing index "<<smaller_fruit_index<<" with fruit size: "<<a[smaller_fruit_index]<<std::endl;
+                    indices_to_remove.push_back(smaller_fruit_index);
+                    }
+                }
+            }
+            std::cout<<"Adding index "<<bigger_fruit_index<<" with fruit size: "<<a[bigger_fruit_index]<<std::endl;
+            indices_to_add.push_back(bigger_fruit_index);
+            b.push_back(a[bigger_fruit_index]);
+        }
+        
+    }
+    for (int i = 0; i < b.size(); ++i)
+    {
+        std::cout<<"bi: "<<b[i]<<std::endl;
+    }
+    for (int i = 0; i < indices_to_remove.size(); ++i)
+    {
+        std::cout<<"ri: "<<indices_to_remove[i]<<std::endl;
+    }
+}
+}*/
+
+int ActivePerciever::removeFalsePositives()
+{
+  std::vector<size_t> indices_to_remove;
+  std::vector<int> indices_to_add;
+
+  for(size_t i = 0; i < fruits_list_.size(); ++i)
+  {
+    if((std::find(indices_to_remove.begin(), indices_to_remove.end(), i) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), i) == indices_to_add.end()))
+    {
+      size_t bigger_fruit_index = i;
+      auto ref_center = fruits_list_[bigger_fruit_index].fruit_pose.position;
+      auto ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
+      for(size_t j = i;  j < fruits_list_.size(); ++j)
+      {
+        if((std::find(indices_to_remove.begin(), indices_to_remove.end(), j) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), j) == indices_to_add.end()))
+        {
+          auto smaller_fruit_index = j;
+          auto compared_center = fruits_list_[j].fruit_pose.position;
+          double z_diff = abs(ref_center.z - compared_center.z);
+          double y_diff = abs(ref_center.y - compared_center.y);
+          double x_diff = abs(ref_center.x - compared_center.x);
+
+          if(z_diff < 0.05)
+          {
+            if(sqrt(x_diff*x_diff + y_diff*y_diff) < 0.07)
+            {
+              auto comp_obs_points = fruits_list_[j].observed_fruit_shape->size();
+              if(comp_obs_points > ref_obs_points)
+              {
+                smaller_fruit_index = bigger_fruit_index;
+                bigger_fruit_index = j;
+                ref_center = fruits_list_[bigger_fruit_index].fruit_pose.position;
+                ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
+              }
+              indices_to_remove.push_back(smaller_fruit_index);
+            }
+          }
+        }
+      }
+      indices_to_add.push_back(bigger_fruit_index);
+      fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruits_list_[bigger_fruit_index].fruit_id, fruits_list_[bigger_fruit_index]));
+    }
+  }
+  ROS_WARN_STREAM("Fruit Generation success with "<<indices_to_add.size()<<" completed");
+  return fruit_map_.size();
 }
 
 bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstancePointclouds& instcloud_srv)
@@ -172,38 +306,16 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     setActivePercieverStatus(ERROR_NO_FRUITS_IN_MAP);
     return false;
   }
-  bool atleast_one_completed_fruit = false;
-  int num_fruits = 0;
-  for(const auto& inst_element:instcloud_srv.response.instance_clouds_with_centroid)
-  {
-    superellipsoid::DetectedFruit fruit;
-    ROS_DEBUG("0");
-    pcl::fromROSMsg(inst_element.pointcloud, *(fruit.observed_fruit_shape));
-    fruit.fruit_id = inst_element.instance_id;
-    ROS_DEBUG("1");
-    bool success = se_detector_->completeFruitShape(fruit);
-    if(success)
-    {
-      num_fruits++;
-      ROS_INFO_STREAM("Fruit with successful shape completion: "<<fruit.fruit_id);
-      atleast_one_completed_fruit = true;
-    }
-    else
-    {
-      ROS_WARN_STREAM("Fruit with failed shape completion: "<<fruit.fruit_id);
-    }
-    fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
-  }
   ROS_DEBUG("3");
-  if(atleast_one_completed_fruit == false)
+  if(computeFruitShapes(instcloud_srv.response.instance_clouds_with_centroid) == false)
   {
     setActivePercieverStatus(ERROR_SHAPE_COMPLETION);
     return false;
   }
   ROS_DEBUG("4");
+  removeFalsePositives();
   fruit_map_available_ = true;
   setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
-  ROS_WARN_STREAM("Fruit Generation success with "<<num_fruits<<" completed");
   return true;
 }
 
