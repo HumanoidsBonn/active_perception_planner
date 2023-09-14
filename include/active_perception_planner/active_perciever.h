@@ -185,6 +185,7 @@ protected:
   bool follow_fruit_enabled_ = false;
   bool fruit_est_initialised_ = false;
 
+
   //sensor_msgs::JointState
 
   std::vector<std::string> mapping_poses_list_; // list of named poses for exploring the current local poses

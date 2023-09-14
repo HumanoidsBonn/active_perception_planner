@@ -38,6 +38,12 @@ protected:
 
   ros::ServiceClient client_start_depth_seg_, client_stop_depth_seg_, client_start_obj_det_, client_stop_obj_det_;
 
+  ros::ServiceClient client_start_depth_seg_d405_, client_stop_depth_seg_d405_, client_start_obj_det_d405_, client_stop_obj_det_d405_;
+
+  bool disable_motion_ = false;
+
+  bool disable_d405_processing_ = false;
+
   std::shared_ptr<ActivePerciever> active_perciever_;
 
   ros::Publisher pub_superellipsoids_;

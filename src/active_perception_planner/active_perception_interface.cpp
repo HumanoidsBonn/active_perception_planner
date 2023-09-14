@@ -15,10 +15,20 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
+  nhp_.param<bool>("disable_d405_processing", disable_d405_processing_, false);
+
   client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
   client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
   client_start_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
-  client_stop_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop");
+  client_stop_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
+
+  if(disable_d405_processing_ == false)
+  {
+    client_start_depth_seg_d405_ = nhp_.serviceClient<std_srvs::Empty>("/d405_depth_segmentation_node/start");
+    client_stop_depth_seg_d405_  = nhp_.serviceClient<std_srvs::Empty>("/d405_depth_segmentation_node/stop");
+    client_start_obj_det_d405_   = nhp_.serviceClient<std_srvs::Empty>("/d405_yolo_segmentation_ros_node/start");
+    client_stop_obj_det_d405_  = nhp_.serviceClient<std_srvs::Empty>("/d405_yolo_segmentation_ros_node/stop");
+  } 
 
   pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
 
@@ -27,6 +37,8 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   config_package_path_ = ros::package::getPath(config_package);
 
   loadJointStatesasRememberedJointValues();
+
+  nhp_.param<bool>("disable_motion", disable_motion_, false);
 
   //  if(active_perciever_->moveToInitialMappingPose() == false)
 //  {
@@ -39,6 +51,11 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
 {
   callEmptyService(client_start_depth_seg_);
   callEmptyService(client_start_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    callEmptyService(client_start_depth_seg_d405_);
+    callEmptyService(client_start_obj_det_d405_);
+  }
   
   if(active_perciever_->clearSceneMap() == false)
   {
@@ -65,6 +82,11 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   publishVisualizations();
   callEmptyService(client_stop_depth_seg_);
   callEmptyService(client_stop_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    callEmptyService(client_stop_depth_seg_d405_);
+    callEmptyService(client_stop_obj_det_d405_);
+  }
   return true;
 
 }
@@ -73,6 +95,11 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
 {
   callEmptyService(client_start_depth_seg_);
   callEmptyService(client_start_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    callEmptyService(client_start_depth_seg_d405_);
+    callEmptyService(client_start_obj_det_d405_);
+  }
   active_perciever_->startFollowFruit(req.fruit_id);
   res.success = true;
   return true;
@@ -83,6 +110,11 @@ bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interf
   active_perciever_->stopFollowFruit();
   callEmptyService(client_stop_depth_seg_);
   callEmptyService(client_stop_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    callEmptyService(client_stop_depth_seg_d405_);
+    callEmptyService(client_stop_obj_det_d405_);
+  }
   res.success = true;
   return true;
 }
