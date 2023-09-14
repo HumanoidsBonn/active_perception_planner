@@ -39,6 +39,7 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   loadJointStatesasRememberedJointValues();
 
   nhp_.param<bool>("disable_motion", disable_motion_, false);
+  nhp_.param<double>("wait_time", wait_time_, 60.0);
 
   //  if(active_perciever_->moveToInitialMappingPose() == false)
 //  {
@@ -63,12 +64,19 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
     res.success = false;
     return true;
   }
-
-  if(active_perciever_->performLocalMappingMotion() == false)
+  if(disable_motion_ == false)
   {
-    ROS_ERROR("Could not perform local mapping motion");
-    res.success = false;
-    return true;
+    if(active_perciever_->performLocalMappingMotion() == false)
+    {
+      ROS_ERROR("Could not perform local mapping motion");
+      res.success = false;
+      return true;
+    }
+  }
+  else
+  {
+    ROS_WARN_STREAM("Local mapping motion disabled. Sleeping for "<<wait_time_<< "seconds");
+    sleep(wait_time_);
   }
   vpp_msgs::GetListInstancePointclouds instcloud_srv;
   if(active_perciever_->createSceneMapWithCompletedFruits(instcloud_srv) == false)

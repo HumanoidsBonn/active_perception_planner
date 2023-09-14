@@ -44,6 +44,8 @@ protected:
 
   bool disable_d405_processing_ = false;
 
+  double wait_time_;
+
   std::shared_ptr<ActivePerciever> active_perciever_;
 
   ros::Publisher pub_superellipsoids_;
