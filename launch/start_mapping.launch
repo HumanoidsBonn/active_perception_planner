@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 
 <launch>
-    <include file="$(find gsm_node)/launch/zed2i_sweet_pepper.launch"/>
-    <include file="$(find depth_segmentation)/launch/realsense_semantic_depth_segmentation.launch"/>
+    <include file="$(find active_perception_planner)/launch/start_vpp.launch"/>
+    <include file="$(find active_perception_planner)/launch/start_depth_segmentation.launch"/>
 </launch>

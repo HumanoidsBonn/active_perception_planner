@@ -13,9 +13,10 @@
 using namespace active_perception_planner;
 using namespace utils;
 
-ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), planner_id_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
+ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame, const bool disable_motion):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), planner_id_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
   tf_buffer_(ros::Duration(30)),
-  tf_listener_(tf_buffer_)
+  tf_listener_(tf_buffer_),
+  disable_motion_(disable_motion)
 {
   nhp_.param<bool>("move_group_interface_enabled", is_move_group_used_, true);
   nhp_.param<std::string>("moveit_planner_type", moveit_planner_type_, "pilz_industrial_motion_planner");
@@ -29,32 +30,34 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
   nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
   nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
-  nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.04);
-
+  nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
 
   mapping_motion_type_ = "PTP";
-  if(is_move_group_used_)
+  if(disable_motion_ == false)
   {
-    ROS_INFO("MOVE_GROUP PLANNER");
-    auto base_ptr = std::make_shared<motion_planning::MoveGroupPlanner>(planning_group_name, nh_);
-    motion_planner_ = std::static_pointer_cast<motion_planning::MotionPlanner>(base_ptr);
-
-    std::vector<moveit_msgs::PlannerInterfaceDescription> inter_desc_vec;
-    bool check = motion_planner_->getMoveGroupHandle()->getInterfaceDescriptions(inter_desc_vec);
-    for (const auto& inter_desc: inter_desc_vec)
+    if(is_move_group_used_)
     {
-      ROS_INFO_STREAM("Planner Interfaces: "<<inter_desc); 
-    }
-    motion_planner_->getMoveGroupHandle()->setPlanningPipelineId("pilz_industrial_motion_planner");
-    motion_planner_->getMoveGroupHandle()->setPlannerId(planner_id_);
+      ROS_INFO("MOVE_GROUP PLANNER");
+      auto base_ptr = std::make_shared<motion_planning::MoveGroupPlanner>(planning_group_name, nh_);
+      motion_planner_ = std::static_pointer_cast<motion_planning::MotionPlanner>(base_ptr);
 
-  }
-  else
-  {
-    ROS_INFO("Pilz Planner");
-    motion_planner_ = std::make_shared<motion_planning::MotionPlanner>(planning_group_name_, nh_);
-    motion_planner_->initialisePlanner(moveit_planner_type_, planner_id_, planning_group_name_);
-    motion_planner_->initialiseMotionPlanRequest(planner_id_, planning_group_name_, num_planning_attempts_, allowed_planning_time_);
+      std::vector<moveit_msgs::PlannerInterfaceDescription> inter_desc_vec;
+      bool check = motion_planner_->getMoveGroupHandle()->getInterfaceDescriptions(inter_desc_vec);
+      for (const auto& inter_desc: inter_desc_vec)
+      {
+        ROS_INFO_STREAM("Planner Interfaces: "<<inter_desc); 
+      }
+      motion_planner_->getMoveGroupHandle()->setPlanningPipelineId("pilz_industrial_motion_planner");
+      motion_planner_->getMoveGroupHandle()->setPlannerId(planner_id_);
+
+    }
+    else
+    {
+      ROS_INFO("Pilz Planner");
+      motion_planner_ = std::make_shared<motion_planning::MotionPlanner>(planning_group_name_, nh_);
+      motion_planner_->initialisePlanner(moveit_planner_type_, planner_id_, planning_group_name_);
+      motion_planner_->initialiseMotionPlanRequest(planner_id_, planning_group_name_, num_planning_attempts_, allowed_planning_time_);
+    }
   }
 
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
@@ -246,9 +249,10 @@ int ActivePerciever::removeFalsePositives()
     if((std::find(indices_to_remove.begin(), indices_to_remove.end(), i) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), i) == indices_to_add.end()))
     {
       size_t bigger_fruit_index = i;
-      auto ref_center = fruits_list_[bigger_fruit_index].fruit_pose.position;
+      auto ref_center     = fruits_list_[bigger_fruit_index].fruit_pose.position;
       auto ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
-      for(size_t j = i;  j < fruits_list_.size(); ++j)
+      auto ref_fit_score  = fruits_list_[bigger_fruit_index].fit_score;
+      for(size_t j = i+1;  j < fruits_list_.size(); ++j)
       {
         if((std::find(indices_to_remove.begin(), indices_to_remove.end(), j) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), j) == indices_to_add.end()))
         {
@@ -262,14 +266,22 @@ int ActivePerciever::removeFalsePositives()
           {
             if(sqrt(x_diff*x_diff + y_diff*y_diff) < fruit_separation_xycenter_diff_)
             {
+              ROS_WARN("Fruits with centers close to each other");
               auto comp_obs_points = fruits_list_[j].observed_fruit_shape->size();
-              if(comp_obs_points > ref_obs_points)
+              auto comp_fit_score  = fruits_list_[j].fit_score;
+              if(comp_fit_score > ref_fit_score)
               {
                 smaller_fruit_index = bigger_fruit_index;
                 bigger_fruit_index = j;
                 ref_center = fruits_list_[bigger_fruit_index].fruit_pose.position;
+
+                ref_fit_score = fruits_list_[bigger_fruit_index].fit_score;
+                comp_fit_score  = fruits_list_[smaller_fruit_index].fit_score;
                 ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
+                comp_obs_points = fruits_list_[smaller_fruit_index].observed_fruit_shape->size();
               }
+              ROS_WARN_STREAM("Bigger  fruit: fit score: "<<fruits_list_[bigger_fruit_index].fit_score<<" obs score: "<<fruits_list_[bigger_fruit_index].observation_score<<" num_points: "<<ref_obs_points);
+              ROS_WARN_STREAM("Smaller fruit: fit score: "<<fruits_list_[smaller_fruit_index].fit_score<<" obs score: "<<fruits_list_[smaller_fruit_index].observation_score<<" num_points: "<<comp_obs_points);
               indices_to_remove.push_back(smaller_fruit_index);
             }
           }
@@ -294,7 +306,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
   //   setActivePercieverStatus(ERROR_MAP_GENERATION);
   //   return false;
   // }
-  // ROS_WARN("GetScenePointcloud success ");
+  ROS_WARN("Calling GetListInstancePointclouds Service ...");
   instcloud_srv.request.get_specific_instances = false;
   if(!get_instanceclouds_client_.call(instcloud_srv))
   {
@@ -302,7 +314,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
     setActivePercieverStatus(ERROR_MAP_GENERATION);
     return false;
   }
-  ROS_WARN("GetListInstancePointclouds success ");
+  ROS_WARN("GetListInstancePointclouds Service Call Success ");
   if(instcloud_srv.response.instance_clouds_with_centroid.empty())
   {
     ROS_ERROR("Failed to detect fruits in the 3D map");

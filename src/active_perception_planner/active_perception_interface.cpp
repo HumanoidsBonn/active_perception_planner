@@ -9,13 +9,16 @@ using namespace active_perception_planner;
 
 ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBuffer_)
 {
-  active_perciever_ = std::make_shared<active_perception_planner::ActivePerciever>(nhp_, std::string("head"), std::string("head_link_base"), std::string("head_link_eef"));
+  nhp_.param<bool>("disable_motion", disable_motion_, false);
+  nhp_.param<double>("wait_time", wait_time_, 60.0);
+  nhp_.param<bool>("disable_d405_processing", disable_d405_processing_, false);
+
+  active_perciever_ = std::make_shared<active_perception_planner::ActivePerciever>(nhp_, std::string("head"), std::string("head_link_base"), std::string("head_link_eef"), disable_motion_);
   srv_detect_fruits_ = nhp_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
   srv_start_follow_fruits_ = nhp_.advertiseService("start_follow_fruit", &ActivePercieverInterface::processStartFollowFruitsServiceCallback, this);
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
-  nhp_.param<bool>("disable_d405_processing", disable_d405_processing_, false);
 
   client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
   client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
@@ -36,10 +39,10 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   nhp_.param<std::string>("config_package", config_package, "active_perception_planner");
   config_package_path_ = ros::package::getPath(config_package);
 
-  loadJointStatesasRememberedJointValues();
+  if(disable_motion_ == false)
+    loadJointStatesasRememberedJointValues();
 
-  nhp_.param<bool>("disable_motion", disable_motion_, false);
-  nhp_.param<double>("wait_time", wait_time_, 60.0);
+  
 
   //  if(active_perciever_->moveToInitialMappingPose() == false)
 //  {
@@ -79,6 +82,7 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
     sleep(wait_time_);
   }
   vpp_msgs::GetListInstancePointclouds instcloud_srv;
+  ROS_WARN_STREAM("Starting Scene Generation with fruits");
   if(active_perciever_->createSceneMapWithCompletedFruits(instcloud_srv) == false)
   {
     ROS_ERROR("Could not create voxblox plus plus map of instance fruits");
@@ -145,6 +149,7 @@ oc2_interface_msgs::DetectFruits::Response ActivePercieverInterface::getFruitMap
       oc2_interface_msgs::DetectedFruit fruit;
       fruit.fruit_id = it->second.fruit_id;
       fruit.fruit_pose = it->second.fruit_pose;
+      fruit.score = it->second.fit_score;
       pcl::toROSMsg(*(it->second.observed_fruit_shape), fruit.observed_fruit);
       pcl::toROSMsg(*(it->second.completed_fruit_shape), fruit.predicted_fruit);
 

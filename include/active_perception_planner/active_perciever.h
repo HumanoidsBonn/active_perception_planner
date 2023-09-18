@@ -75,7 +75,7 @@ class ActivePerciever{
 
 public:
 
-  ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame);
+  ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame, const bool disable_motion=false);
 
   ActivePercieverStatus getActivePercieverStatus();
 
@@ -193,6 +193,8 @@ protected:
 
   double fruit_separation_xycenter_diff_;
   double fruit_separation_z_diff_;
+
+  bool disable_motion_ = false;
 
   bool enable_check_manipulation_arms_stowed_ = false;
   bool checkManipulationArmsStowed();

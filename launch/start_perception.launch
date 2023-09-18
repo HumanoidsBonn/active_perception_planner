@@ -3,5 +3,6 @@
 <launch>
     <include file="$(dirname)/start_zed2i.launch"/>
     <include file="$(dirname)/publish_cloud.launch"/>
+    <include file="$(dirname)/rs_rgbd.launch"/>
 
 </launch>
