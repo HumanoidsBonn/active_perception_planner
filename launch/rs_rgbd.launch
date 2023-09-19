@@ -50,7 +50,7 @@ Processing enabled by this node:
   <arg name="serial_no"           default=""/>
   <arg name="usb_port_id"         default=""/>
   <arg name="device_type"         default=""/>
-  <arg name="json_file_path"      default=""/>
+  <arg name="json_file_path"      default="$(find active_perception_planner)/config/d405_highaccuracy.json"/>
 
   <arg name="fisheye_width"       default="-1"/>
   <arg name="fisheye_height"      default="-1"/>
