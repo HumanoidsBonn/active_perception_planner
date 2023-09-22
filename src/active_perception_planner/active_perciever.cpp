@@ -251,7 +251,7 @@ int ActivePerciever::removeFalsePositives()
       size_t bigger_fruit_index = i;
       auto ref_center     = fruits_list_[bigger_fruit_index].fruit_pose.position;
       auto ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
-      auto ref_fit_score  = fruits_list_[bigger_fruit_index].fit_score;
+      auto ref_fit_score  = fruits_list_[bigger_fruit_index].observation_score;
       for(size_t j = i+1;  j < fruits_list_.size(); ++j)
       {
         if((std::find(indices_to_remove.begin(), indices_to_remove.end(), j) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), j) == indices_to_add.end()))
@@ -268,15 +268,15 @@ int ActivePerciever::removeFalsePositives()
             {
               ROS_WARN("Fruits with centers close to each other");
               auto comp_obs_points = fruits_list_[j].observed_fruit_shape->size();
-              auto comp_fit_score  = fruits_list_[j].fit_score;
+              auto comp_fit_score  = fruits_list_[j].observation_score;
               if(comp_fit_score > ref_fit_score)
               {
                 smaller_fruit_index = bigger_fruit_index;
                 bigger_fruit_index = j;
                 ref_center = fruits_list_[bigger_fruit_index].fruit_pose.position;
 
-                ref_fit_score = fruits_list_[bigger_fruit_index].fit_score;
-                comp_fit_score  = fruits_list_[smaller_fruit_index].fit_score;
+                ref_fit_score = fruits_list_[bigger_fruit_index].observation_score;
+                comp_fit_score  = fruits_list_[smaller_fruit_index].observation_score;
                 ref_obs_points = fruits_list_[bigger_fruit_index].observed_fruit_shape->size();
                 comp_obs_points = fruits_list_[smaller_fruit_index].observed_fruit_shape->size();
               }
