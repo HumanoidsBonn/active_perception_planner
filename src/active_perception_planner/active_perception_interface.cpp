@@ -53,11 +53,11 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
 {
-  callEmptyService(client_start_depth_seg_);
+  //callEmptyService(client_start_depth_seg_);
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
   {
-    callEmptyService(client_start_depth_seg_d405_);
+    //callEmptyService(client_start_depth_seg_d405_);
     callEmptyService(client_start_obj_det_d405_);
   }
   
@@ -92,11 +92,11 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   res.success = true;
   res = getFruitMapAsSrvResponse();
   publishVisualizations();
-  callEmptyService(client_stop_depth_seg_);
+  //callEmptyService(client_stop_depth_seg_);
   callEmptyService(client_stop_obj_det_);
   if(disable_d405_processing_ == false)
   {
-    callEmptyService(client_stop_depth_seg_d405_);
+    //callEmptyService(client_stop_depth_seg_d405_);
     callEmptyService(client_stop_obj_det_d405_);
   }
   return true;
@@ -105,11 +105,11 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
 
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)
 {
-  callEmptyService(client_start_depth_seg_);
+  //callEmptyService(client_start_depth_seg_);
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
   {
-    callEmptyService(client_start_depth_seg_d405_);
+    //callEmptyService(client_start_depth_seg_d405_);
     callEmptyService(client_start_obj_det_d405_);
   }
   active_perciever_->startFollowFruit(req.fruit_id);
@@ -120,11 +120,11 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
 bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request &req, oc2_interface_msgs::StopFollowFruit::Response &res)
 {
   active_perciever_->stopFollowFruit();
-  callEmptyService(client_stop_depth_seg_);
+  //callEmptyService(client_stop_depth_seg_);
   callEmptyService(client_stop_obj_det_);
   if(disable_d405_processing_ == false)
   {
-    callEmptyService(client_stop_depth_seg_d405_);
+    //callEmptyService(client_stop_depth_seg_d405_);
     callEmptyService(client_stop_obj_det_d405_);
   }
   res.success = true;
