@@ -33,6 +33,11 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
     client_stop_obj_det_d405_  = nhp_.serviceClient<std_srvs::Empty>("/d405_yolo_segmentation_ros_node/stop");
   } 
 
+  act_detection_server_.reset(new DetectionServer(nhp_, "/detectFruitsAction", false));
+	act_detection_server_->registerGoalCallback(boost::bind(&ActivePercieverInterface::executeDetectionServerGoalCallback, this));
+  act_detection_server_->registerPreemptCallback(boost::bind(&ActivePercieverInterface::preemptDetectionServerGoalCallback, this));
+
+
   pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
 
   std::string config_package;
@@ -48,7 +53,77 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
 //  {
 //   throw std::runtime_error("Cannot move head arm to transport pose");
 //  }
+
+  act_detection_server_->start();
   ROS_INFO_ONCE("ActivePercieverInterface");
+}
+
+void ActivePercieverInterface::executeDetectionServerGoalCallback()
+{
+  if(!act_detection_server_->isNewGoalAvailable())
+		return;
+
+	const auto& goal = act_detection_server_->acceptNewGoal();
+
+  callEmptyService(client_start_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    //callEmptyService(client_start_depth_seg_d405_);
+    callEmptyService(client_start_obj_det_d405_);
+  }
+  
+  if(active_perciever_->clearSceneMap() == false)
+  {
+    ROS_ERROR("Could not clear VPP Scene Map");
+    detection_result_.success = false;
+    detection_result_.message = "Could not clear Scene Map";
+    act_detection_server_->setAborted(detection_result_);
+    return;
+  }
+  if(disable_motion_ == false)
+  {
+    if(active_perciever_->performLocalMappingMotion() == false)
+    {
+      ROS_ERROR("Could not perform local mapping motion");
+      detection_result_.success = false;
+      detection_result_.message = "Could not perform local mapping motion";
+      act_detection_server_->setAborted(detection_result_);
+      return;
+    }
+  }
+  else
+  {
+    ROS_WARN_STREAM("Local mapping motion disabled. Sleeping for "<<wait_time_<< "seconds");
+    sleep(wait_time_);
+  }
+  vpp_msgs::GetListInstancePointclouds instcloud_srv;
+  ROS_WARN_STREAM("Starting Scene Generation with fruits");
+  callEmptyService(client_stop_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    //callEmptyService(client_stop_depth_seg_d405_);
+    callEmptyService(client_stop_obj_det_d405_);
+  }
+
+  if(active_perciever_->createSceneMapWithCompletedFruits(instcloud_srv) == false)
+  {
+    ROS_ERROR("Could not create voxblox plus plus map of instance fruits");
+    detection_result_.success = false;
+    detection_result_.message = "Could not create voxblox plus plus map of instance fruits";
+    act_detection_server_->setAborted(detection_result_);
+    return;
+  }
+  detection_result_.success = true;
+  detection_result_ = getFruitMapAsActionResult();
+  publishVisualizations();
+  act_detection_server_->setSucceeded(detection_result_);
+  ROS_INFO("Detect Fruit Action Succeeded");
+}
+
+void ActivePercieverInterface::preemptDetectionServerGoalCallback()
+{
+  ROS_INFO("Detect Fruit Action Preempted");
+  act_detection_server_->setPreempted();
 }
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
@@ -134,6 +209,35 @@ bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interf
 oc2_interface_msgs::DetectFruits::Response ActivePercieverInterface::getFruitMapAsSrvResponse()
 {
   oc2_interface_msgs::DetectFruits::Response res;
+  res.status_code = int(active_perciever_->getActivePercieverStatus());
+  res.success = false;
+  if(active_perciever_->getActivePercieverStatus() == FRUIT_MAP_GENERATION_SUCCESS)
+  {
+    res.success = true;
+
+    res.scene_pointcloud = active_perciever_->getScenePointCloud();
+    FruitMap fruit_map   = active_perciever_->getFruitMap();
+    FruitMapIterator it;
+
+    for(it = fruit_map.begin(); it != fruit_map.end(); ++it)
+    {
+      oc2_interface_msgs::DetectedFruit fruit;
+      fruit.fruit_id = it->second.fruit_id;
+      fruit.fruit_pose = it->second.fruit_pose;
+      fruit.score = it->second.observation_score;
+      pcl::toROSMsg(*(it->second.observed_fruit_shape), fruit.observed_fruit);
+      pcl::toROSMsg(*(it->second.completed_fruit_shape), fruit.predicted_fruit);
+
+      res.detected_fruits.header.frame_id =  "trolley_local_link";
+      res.detected_fruits.detected_fruits.push_back(fruit);
+    }
+  }
+  return res;
+}
+
+oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getFruitMapAsActionResult()
+{
+  oc2_interface_msgs::DetectFruitsResult res;
   res.status_code = int(active_perciever_->getActivePercieverStatus());
   res.success = false;
   if(active_perciever_->getActivePercieverStatus() == FRUIT_MAP_GENERATION_SUCCESS)

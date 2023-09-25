@@ -12,6 +12,10 @@
 
 #include<active_perception_planner/active_perciever.h>
 
+#include <actionlib/server/simple_action_server.h>
+#include <oc2_interface_msgs/DetectFruitsAction.h>
+
+
 namespace active_perception_planner
 {
 
@@ -29,6 +33,10 @@ public:
 
   bool processSaveJointStatesCallback(oc2_interface_msgs::SaveJointState::Request& req, oc2_interface_msgs::SaveJointState::Response& res);
 
+  void executeDetectionServerGoalCallback();
+
+  void preemptDetectionServerGoalCallback();
+
 
 protected:
 
@@ -39,6 +47,12 @@ protected:
   ros::ServiceClient client_start_depth_seg_, client_stop_depth_seg_, client_start_obj_det_, client_stop_obj_det_;
 
   ros::ServiceClient client_start_depth_seg_d405_, client_stop_depth_seg_d405_, client_start_obj_det_d405_, client_stop_obj_det_d405_;
+
+  using DetectionAction = oc2_interface_msgs::DetectFruitsAction;
+	using DetectionServer = actionlib::SimpleActionServer<DetectionAction>;
+	std::shared_ptr<DetectionServer> act_detection_server_;
+  oc2_interface_msgs::DetectFruitsResult detection_result_;
+
 
   bool disable_motion_ = false;
 
@@ -51,6 +65,9 @@ protected:
   ros::Publisher pub_superellipsoids_;
 
   oc2_interface_msgs::DetectFruits::Response getFruitMapAsSrvResponse();
+
+  oc2_interface_msgs::DetectFruitsResult getFruitMapAsActionResult();
+
 
   void publishVisualizations();
 
