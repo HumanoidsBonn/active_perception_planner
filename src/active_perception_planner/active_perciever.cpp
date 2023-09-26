@@ -147,7 +147,7 @@ bool ActivePerciever::performLocalMappingMotion()
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
-    sleep(3.0);
+    sleep(1.0);
   }
   return true; //getActivePercieverStatus();
 }
