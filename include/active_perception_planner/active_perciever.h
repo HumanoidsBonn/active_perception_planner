@@ -11,6 +11,7 @@
 #include <tf/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
 
+#include <pointcloud_roi_msgs/PointCloudInstances.h>
 #include<oc2_interface_msgs/InterestedFruit.h>
 #include<oc2_interface_msgs/DetectedFruits.h>
 #include<vpp_msgs/GetScenePointcloud.h>
@@ -70,6 +71,12 @@ struct InterestedFruit: public superellipsoid::DetectedFruit
   }
 };
 
+struct ObservedFruit
+{
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr fruit_observed;
+  uint32_t fruit_id;
+  Eigen::Vector3d fruit_obs_centroid;
+};
 
 class ActivePerciever{
 
@@ -203,6 +210,8 @@ protected:
   bool moveToNextMappingPose(const std::string &next_pose);
 
   bool computeFruitShapes(const std::vector<vpp_msgs::InstancePointcloudwithCentroid>& instance_clouds_with_centroid);
+  bool computeFruitShapes(const pointcloud_roi_msgs::PointCloudInstances& pointcloud_instances);
+;
   int removeFalsePositives();
 
   inline void setActivePercieverStatus(const ActivePercieverStatus& status)

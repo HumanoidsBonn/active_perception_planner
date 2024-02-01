@@ -6,7 +6,6 @@
 #include <pcl/filters/conditional_removal.h>
 #include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
-
 #include "yaml-cpp/yaml.h"
 
 
@@ -181,63 +180,37 @@ bool ActivePerciever::computeFruitShapes(const std::vector<vpp_msgs::InstancePoi
   ROS_WARN_STREAM("Fruit Shape Completion success with "<<fruits_list_.size()<<" completed");
   return atleast_one_completed_fruit;
 }
-/*bool test()
+
+bool ActivePerciever::computeFruitShapes(const pointcloud_roi_msgs::PointCloudInstances& raw_segmented_clouds)
 {
-  int main()
-{
-    std::vector<double> a = {1, 2, 5, 4, 3, 5.002, 2.005, 6, 3, 1.995, 10, 10.001, 10};
-    std::vector<int> indices_to_remove;
-    std::vector<int> indices_to_add;
-    std::vector<double> b;
-    for(int i = 0; i < a.size(); ++i)
+  bool atleast_one_completed_fruit = false;
+  int num_fruits = 0;
+  fruits_list_.clear();
+
+  for(const auto& inst_element:raw_segmented_clouds.pointcloud_instances)
+  {
+    superellipsoid::DetectedFruit fruit;
+    ROS_DEBUG("0");
+    pcl::fromROSMsg(inst_element.cloud, *(fruit.observed_fruit_shape));
+    fruit.fruit_id = inst_element.instance_id;
+    ROS_DEBUG("1");
+    bool success = se_detector_->completeFruitShape(fruit);
+    if(success)
     {
-        std::cout<<"--------------I: "<<i<<std::endl;
-        if((std::find(indices_to_remove.begin(), indices_to_remove.end(), i) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), i) == indices_to_add.end()))
-        {
-            std::cout<<"entered"<<std::endl;
-            int bigger_fruit_index = i;
-            auto bigger_no = a[bigger_fruit_index];
-            for(int j = i+1;  j < a.size(); ++j)
-            {
-                std::cout<<"--------------J: "<<j<<std::endl;
-                if((std::find(indices_to_remove.begin(), indices_to_remove.end(), j) == indices_to_remove.end()) && (std::find(indices_to_add.begin(), indices_to_add.end(), j) == indices_to_add.end()))
-                {
-                    std::cout<<"entered"<<std::endl;
-                    auto smaller_fruit_index = j;
-                    auto smaller_no = a[smaller_fruit_index];
-                    auto diff = smaller_no - bigger_no;
-                    if (abs(diff) < 0.1)
-                    {
-                        std::cout<<"comparison"<<std::endl;
-                        if(diff > 0)
-                        {
-                            std::cout<<"swap"<<std::endl;
-                            smaller_fruit_index = bigger_fruit_index;
-                            bigger_fruit_index = j;
-                        }
-                    std::cout<<"------------------------------------------------"<<std::endl;
-                    std::cout<<"Bigger number: "<<a[bigger_fruit_index]<<" Smaller no: "<<a[smaller_fruit_index]<<std::endl;
-                    std::cout<<"Removing index "<<smaller_fruit_index<<" with fruit size: "<<a[smaller_fruit_index]<<std::endl;
-                    indices_to_remove.push_back(smaller_fruit_index);
-                    }
-                }
-            }
-            std::cout<<"Adding index "<<bigger_fruit_index<<" with fruit size: "<<a[bigger_fruit_index]<<std::endl;
-            indices_to_add.push_back(bigger_fruit_index);
-            b.push_back(a[bigger_fruit_index]);
-        }
-        
+      num_fruits++;
+      ROS_INFO_STREAM("Fruit with successful shape completion: "<<fruit.fruit_id);
+      atleast_one_completed_fruit = true;
     }
-    for (int i = 0; i < b.size(); ++i)
+    else
     {
-        std::cout<<"bi: "<<b[i]<<std::endl;
+      ROS_WARN_STREAM("Fruit with failed shape completion: "<<fruit.fruit_id);
     }
-    for (int i = 0; i < indices_to_remove.size(); ++i)
-    {
-        std::cout<<"ri: "<<indices_to_remove[i]<<std::endl;
-    }
+    fruits_list_.push_back(fruit);
+      //fruit_map_.insert(std::pair<uint, superellipsoid::DetectedFruit>(fruit.fruit_id, fruit));
+  }
+  ROS_WARN_STREAM("Fruit Shape Completion success with "<<fruits_list_.size()<<" completed");
+  return atleast_one_completed_fruit;
 }
-}*/
 
 int ActivePerciever::removeFalsePositives()
 {

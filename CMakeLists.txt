@@ -26,6 +26,8 @@ find_package(catkin REQUIRED
     tf2_sensor_msgs
     tf2
     tf2_tools
+    pointcloud_roi_msgs
+    pointcloud_roi
 )
 
 find_package(yaml-cpp REQUIRED)

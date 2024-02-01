@@ -15,6 +15,8 @@
 #include <actionlib/server/simple_action_server.h>
 #include <oc2_interface_msgs/DetectFruitsAction.h>
 
+#include <pointcloud_roi/detected_roi_filter.h>
+
 
 namespace active_perception_planner
 {
@@ -52,6 +54,8 @@ protected:
 	using DetectionServer = actionlib::SimpleActionServer<DetectionAction>;
 	std::shared_ptr<DetectionServer> act_detection_server_;
   oc2_interface_msgs::DetectFruitsResult detection_result_;
+
+  std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
 
 
   bool disable_motion_ = false;

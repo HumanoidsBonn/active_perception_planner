@@ -19,6 +19,8 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
+  roi_detector_ = std::make_shared<pointcloud_roi::DetectedRoiFilter>(nhp_);
+
 
   client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
   client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
@@ -156,6 +158,13 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
     ROS_WARN_STREAM("Local mapping motion disabled. Sleeping for "<<wait_time_<< "seconds");
     sleep(wait_time_);
   }
+  sleep(1.0);
+  callEmptyService(client_stop_obj_det_);
+  if(disable_d405_processing_ == false)
+  {
+    //callEmptyService(client_stop_depth_seg_d405_);
+    callEmptyService(client_stop_obj_det_d405_);
+  }
   vpp_msgs::GetListInstancePointclouds instcloud_srv;
   ROS_WARN_STREAM("Starting Scene Generation with fruits");
   if(active_perciever_->createSceneMapWithCompletedFruits(instcloud_srv) == false)
@@ -168,12 +177,7 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   res = getFruitMapAsSrvResponse();
   publishVisualizations();
   //callEmptyService(client_stop_depth_seg_);
-  callEmptyService(client_stop_obj_det_);
-  if(disable_d405_processing_ == false)
-  {
-    //callEmptyService(client_stop_depth_seg_d405_);
-    callEmptyService(client_stop_obj_det_d405_);
-  }
+  
   return true;
 
 }
