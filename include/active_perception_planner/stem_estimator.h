@@ -63,7 +63,7 @@ class StemEstimator
 
     void combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments);
 
-    void regress3DLine(const PointCloudT::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction);
+    void regress3DLine(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction);
 
 
 };

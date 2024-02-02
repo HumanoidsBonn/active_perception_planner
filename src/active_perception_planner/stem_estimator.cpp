@@ -153,10 +153,38 @@ std::vector<std::vector<active_perception_planner::Line2D>> StemEstimator::group
   return groups;
 }
 
+void StemEstimator::regress3DLine(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction)
+{
+  // Compute centroid of the point cloud
+  Eigen::Vector4f centroid;
+  pcl::compute3DCentroid(*cloud, centroid);
+  line_origin = centroid.head<3>();
+  // Compute covariance matrix
+  Eigen::Matrix3f covariance;
+  pcl::computeCovarianceMatrixNormalized(*cloud, centroid, covariance);
+    
+  // Perform PCA and obtain eigenvalues and eigenvectors
+  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
+  Eigen::Matrix3f eigenvectors = solver.eigenvectors();
+  line_direction = eigenvectors.col(0);
+}
+
 void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments)
 {
-  for(const auto& group: grouped_segments)
+  for(unsigned i = 0; i < grouped_segments.size(); ++i)
   {
-
+    auto group = grouped_segments[i];
+    active_perception_planner::Stem stem;
+    stem.line_cloud.reset(new pcl::PointCloud<PointSurfelLabel>);
+    for(const auto& seg: group)
+    {
+      auto det = stem_detections_[seg.vector_idx];
+      if(det.instance_id == seg.instance_id)
+      {
+        *stem.line_cloud +=  *det.cloud_segment;
+      }
+    }
+    Eigen::Vector3f lineOrigin, lineDirection;
+    regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
   }
 }
