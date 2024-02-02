@@ -71,6 +71,7 @@
   <depend>tf2_tools</depend>
   <depend>pointcloud_roi_msgs</depend>
   <depend>pointcloud_roi</depend>
+  <depend>pcl_ros</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

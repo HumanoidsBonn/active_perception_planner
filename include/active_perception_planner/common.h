@@ -9,7 +9,7 @@ namespace active_perception_planner
 {
 struct Stem
 {
-  pcl::PointCloud<PointSurfel> ::Ptr line_cloud;
+  pcl::PointCloud<pcl::PointSurfel>::Ptr line_cloud;
   Eigen::Vector3f line_origin;
   Eigen::Vector3f line_direction;
   Eigen::Vector3f top_point, bottom_point;

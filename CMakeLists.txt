@@ -26,6 +26,7 @@ find_package(catkin REQUIRED
     tf2_sensor_msgs
     tf2
     tf2_tools
+    pcl_ros
     pointcloud_roi_msgs
     pointcloud_roi
 )
@@ -143,6 +144,7 @@ include_directories(
 add_library(${PROJECT_NAME}
     src/${PROJECT_NAME}/active_perciever.cpp
     src/${PROJECT_NAME}/voxblox_map.cpp
+    src/${PROJECT_NAME}/stem_estimator.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

@@ -1,12 +1,12 @@
 active_perciever:
   pose_list:
-    - lc_1
-    - lc_2
-    - lc_3
-    - lc_4
-    - lc_5
-    - lc_6
-    - lc_7
-    - lc_9
+    # - lc_1
+    # - lc_2
+    # - lc_3
+    # - lc_4
+    # - lc_5
+    # - lc_6
+    # - lc_7
+    # - lc_9
     - init_pose
     - lc_1
