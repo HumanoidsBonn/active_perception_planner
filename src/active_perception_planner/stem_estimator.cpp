@@ -184,7 +184,37 @@ void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std
         *stem.line_cloud +=  *det.cloud_segment;
       }
     }
-    Eigen::Vector3f lineOrigin, lineDirection;
     regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
+    stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
+    findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
   }
+}
+
+float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<PointSurfelLabel>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
+{
+  float total_distance = 0.0;
+  for (const auto& point : *line_cloud) {
+      Eigen::Vector3f vector2line = point.getVector3fMap() - line_origin;
+      float dist2line = vector2line.cross(line_direction).norm();
+      total_distance += dist2line;
+  }
+
+  // Calculate the average distance
+  float average_distance = total_distance / line_cloud->size();
+
+  return average_distance;
+}
+
+void StemEstimator::findTopAndBottomPoints(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point) 
+{
+  auto minZ = std::min_element(cloud->begin(), cloud->end(), [](const PointSurfelLabel& p1, const PointSurfelLabel& p2) {
+      return p1.z < p2.z;
+  });
+
+  auto maxZ = std::max_element(cloud->begin(), cloud->end(), [](const PointSurfelLabel& p1, const PointSurfelLabel& p2) {
+      return p1.z > p2.z;
+  });
+
+  top_point = minZ->getVector3fMap();
+  bottom_point = maxZ->getVector3fMap();
 }
