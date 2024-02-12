@@ -51,6 +51,14 @@ class StemEstimator
 
     bool lines_not_init_ = true;
 
+    std::mutex mutex_;
+    std::condition_variable cv_;
+    std::thread processing_thread_;
+    std::atomic_bool is_running_;
+    std::mutex mutex_dets_;
+
+    std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets_;
+
     bool checkLineParallelToYAxis(double theta);
 
     cv::Vec4i findLongerLine(const cv::Vec4i& segment1, const cv::Vec4i& segment2);
@@ -63,11 +71,13 @@ class StemEstimator
 
     void combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments);
 
-    void regress3DLine(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction);
+    void regress3DLine(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction);
     
-    float calculateApproximateDiameterAverageMetric(const pcl::PointCloud<PointSurfelLabel>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction);
+    float calculateApproximateDiameterAverageMetric(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction);
     
-    void findTopAndBottomPoints(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point);
+    void findTopAndBottomPoints(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point);
+
+    void processingThread();
 
 
 };

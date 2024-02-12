@@ -6,6 +6,33 @@ StemEstimator::StemEstimator()
 
 }
 
+void StemEstimator::processingThread()
+{
+  while (is_running_ && ros::ok())
+  {
+    //ROS_WARN_STREAM("Is running");
+    std::unique_lock<std::mutex> lk(mutex_);
+    cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
+    if (!this->is_running_)
+      return;
+    
+    std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> current_dets = dets_;
+    dets_ = nullptr;
+
+    setCurrentStemDetections(current_dets);
+    processStemDetections();
+
+    lk.unlock();
+  }
+}
+
+void StemEstimator::processStemDetections()
+{
+  std::vector<active_perception_planner::Line2D>  lines = computeLinesUsing2DContours(stem_detections_);
+  std::vector<std::vector<active_perception_planner::Line2D>> grouped_segments = groupApproxCollinearSegments(lines);
+  combine3DSegmentsFromGrouped2DSegments(grouped_segments);
+}
+
 void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets)
 {
   rgb_image_ = dets->rgb_image.clone();
@@ -153,7 +180,7 @@ std::vector<std::vector<active_perception_planner::Line2D>> StemEstimator::group
   return groups;
 }
 
-void StemEstimator::regress3DLine(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction)
+void StemEstimator::regress3DLine(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction)
 {
   // Compute centroid of the point cloud
   Eigen::Vector4f centroid;
@@ -175,7 +202,7 @@ void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std
   {
     auto group = grouped_segments[i];
     active_perception_planner::Stem stem;
-    stem.line_cloud.reset(new pcl::PointCloud<PointSurfelLabel>);
+    stem.line_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
     for(const auto& seg: group)
     {
       auto det = stem_detections_[seg.vector_idx];
@@ -190,7 +217,7 @@ void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std
   }
 }
 
-float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<PointSurfelLabel>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
+float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
 {
   float total_distance = 0.0;
   for (const auto& point : *line_cloud) {
@@ -205,13 +232,13 @@ float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointC
   return average_distance;
 }
 
-void StemEstimator::findTopAndBottomPoints(const pcl::PointCloud<PointSurfelLabel>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point) 
+void StemEstimator::findTopAndBottomPoints(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point) 
 {
-  auto minZ = std::min_element(cloud->begin(), cloud->end(), [](const PointSurfelLabel& p1, const PointSurfelLabel& p2) {
+  auto minZ = std::min_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
       return p1.z < p2.z;
   });
 
-  auto maxZ = std::max_element(cloud->begin(), cloud->end(), [](const PointSurfelLabel& p1, const PointSurfelLabel& p2) {
+  auto maxZ = std::max_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
       return p1.z > p2.z;
   });
 

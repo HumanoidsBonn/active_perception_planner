@@ -2,17 +2,17 @@
 <launch>
     <arg name="map_frame" default="world" />
     <arg name="rosbag_file" default="/home/rohit/workspace/data/2023_cka_zed2i/2023-08-02-15-14-18.bag"/>
-    <arg name="rate" default="1"/>
+    <arg name="rate" default="1.0"/>
     <!-- <arg name="paused" default="false"/> -->
     <param name="/use_sim_time" type="bool" value="true" />
     
     <include file="$(find horti_description)/launch/model.launch"/>
-    <include file="$(find active_perception_planner)/launch/publish_cloud.launch"/>
+    <!-- <include file="$(find active_perception_planner)/launch/publish_cloud.launch"/> -->
 
     <!-- remux static transforms -->
     <node name="static_transform_mux" type="static_transform_mux" pkg="static_transform_mux" />
-    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock --pause -r $(arg rate) $(arg rosbag_file)"/>
-
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock --pause -r $(arg rate) $(arg rosbag_file) /yolo_segmentation_ros_node/result:=/old/result /yolo_segmentation_ros_node/visualization:=/old/visualization"/>
+    <node name="rviz" pkg="rviz" type="rviz" args="-d $(find active_perception_planner)/config/rosbag.rviz"/>
     
 
 </launch>

@@ -59,6 +59,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
     }
   }
 
+  roi_detector_ = std::make_shared<pointcloud_roi::DetectedRoiFilter>(nhp_);
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
   
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
@@ -146,7 +147,18 @@ bool ActivePerciever::performLocalMappingMotion()
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
-    sleep(1.0);
+    sleep(0.2);
+    bool tracked_dets_available = false;
+    roi_detector_->enableTrackedDetectionCallback(true);
+    auto t_start = ros::Time::now();
+    do
+    {
+      sleep(0.1);
+      tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
+    }
+    while(tracked_dets_available == false && (ros::Time::now()-t_start).toSec() < 1.0);
+    if(tracked_dets_available)
+    auto detections = roi_detector_->readSemanticInstanceDetections();
   }
   return true; //getActivePercieverStatus();
 }

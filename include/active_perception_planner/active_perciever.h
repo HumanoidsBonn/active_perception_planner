@@ -25,6 +25,7 @@
 #include<moveit_motion_planner/motion_planner.h>
 #include<capsicum_superellipsoid_detector/se_detector.h>
 #include <active_perception_planner/voxblox_map.h>
+#include <pointcloud_roi/detected_roi_filter.h>
 
 
 
@@ -192,6 +193,9 @@ protected:
   bool follow_fruit_enabled_ = false;
   bool fruit_est_initialised_ = false;
 
+  std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
+  bool recd_tracked_detections_ = false;
+
 
   //sensor_msgs::JointState
 
@@ -265,6 +269,7 @@ protected:
 
   oc2_interface_msgs::DetectedFruit getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
   oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
+
 };
 
 } // namespace active_perception_planner

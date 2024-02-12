@@ -7,7 +7,7 @@
     <!-- Virtual Python Env -->
     <arg name="yolo_segmentation_ros_python" value="$(env HOME)/.virtualenvs/yolo_segmentation_ros/bin/python3"/>
 
-    <node name="yolo_segmentation_ros_node" pkg="yolo_segmentation_ros" type="ros_node.py" launch-prefix="$(arg yolo_segmentation_ros_python)" output="log">
+    <node name="yolo_segmentation_ros_node" pkg="yolo_segmentation_ros" type="cropped_peduncle_detection_ros_node.py" launch-prefix="$(arg yolo_segmentation_ros_python)" output="log">
         <remap from="input_image" to="/zed2i/left/image_rect_color"/>
     </node>
 

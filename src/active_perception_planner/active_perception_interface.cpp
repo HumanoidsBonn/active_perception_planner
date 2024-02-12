@@ -19,8 +19,6 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
-  roi_detector_ = std::make_shared<pointcloud_roi::DetectedRoiFilter>(nhp_);
-
 
   client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
   client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
