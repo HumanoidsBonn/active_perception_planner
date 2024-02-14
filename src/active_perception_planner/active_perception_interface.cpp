@@ -296,6 +296,8 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       fruit.peduncle.stempoint    = utils::fromEigen2GeometryMsgPoint(it->second.peduncle.stempoint);
       fruit.peduncle.fruitpoint   = utils::fromEigen2GeometryMsgPoint(it->second.peduncle.fruitpoint);
 
+      fruit.nearby_stems.insert(fruit.nearby_stems.begin(), it->second.nearby_stems.begin(), it->second.nearby_stems.end());
+
       pcl::toROSMsg(*(it->second.peduncle.peduncle_cloud), fruit.peduncle.cloud);      
 
       res.crop.detected_fruits.push_back(fruit);
