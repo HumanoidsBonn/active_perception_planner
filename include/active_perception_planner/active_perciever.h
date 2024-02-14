@@ -14,6 +14,8 @@
 #include <pointcloud_roi_msgs/PointCloudInstances.h>
 #include<oc2_interface_msgs/InterestedFruit.h>
 #include<oc2_interface_msgs/DetectedFruits.h>
+#include<oc2_interface_msgs/Crop.h>
+
 #include<vpp_msgs/GetScenePointcloud.h>
 #include<vpp_msgs/GetListInstancePointclouds.h>
 #include<pcl_conversions/pcl_conversions.h>
@@ -99,6 +101,12 @@ public:
 
   Crop crop_;
   void createCrop();
+
+  inline Crop getCrop()
+  {
+    return crop_;
+  }
+
 
 
 protected:
@@ -250,7 +258,7 @@ protected:
     curr_est_interested_fruit_ = fruit;
   }
 
-  oc2_interface_msgs::DetectedFruit getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
+  oc2_interface_msgs::DetectedFruitOld getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
   oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
 
 };

@@ -542,9 +542,9 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
   return false;
 }
 
-oc2_interface_msgs::DetectedFruit ActivePerciever::getasRosMsgType(const superellipsoid::DetectedFruit& fruit)
+oc2_interface_msgs::DetectedFruitOld ActivePerciever::getasRosMsgType(const superellipsoid::DetectedFruit& fruit)
 {
-  oc2_interface_msgs::DetectedFruit fruit_msg;
+  oc2_interface_msgs::DetectedFruitOld fruit_msg;
 
   fruit_msg.fruit_id = fruit.fruit_id;
   pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);

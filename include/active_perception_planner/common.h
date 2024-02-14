@@ -10,6 +10,7 @@ namespace active_perception_planner
 {
 struct Stem
 {
+  int16_t stem_id;
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr line_cloud;
   Eigen::Vector3f line_origin;
   Eigen::Vector3f line_direction;
@@ -65,6 +66,10 @@ struct ObservedFruit
 
 typedef std::map<uint, superellipsoid::DetectedFruit> FruitMap;
 typedef std::map<uint, superellipsoid::DetectedFruit>::iterator FruitMapIterator;
+
+typedef std::unordered_map<uint32_t, DetectedFruitWithPeduncle> FruitWithPeduncleMap;
+typedef std::unordered_map<uint32_t, DetectedFruitWithPeduncle>::iterator FruitWithPeduncleMapIterator;
+
 
 struct InterestedFruit: public superellipsoid::DetectedFruit
 {

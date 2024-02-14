@@ -64,7 +64,10 @@ protected:
 
   oc2_interface_msgs::DetectFruits::Response getFruitMapAsSrvResponse();
 
-  oc2_interface_msgs::DetectFruitsResult getFruitMapAsActionResult();
+  //oc2_interface_msgs::DetectFruitsResult getFruitMapAsActionResult();
+
+  oc2_interface_msgs::DetectFruitsResult getCropAsActionResult();
+
 
 
   void publishVisualizations();

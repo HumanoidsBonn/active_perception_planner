@@ -72,6 +72,26 @@ inline geometry_msgs::Pose fromEigen2GeometryMsg(const Eigen::Vector3d& point, c
   return fromTF2GeometryMsg(point, view_quat);
 }
 
+inline geometry_msgs::Point fromEigen2GeometryMsgPoint(const Eigen::Vector3f& point)
+{
+  geometry_msgs::Point point_msg;
+  point_msg.x = point(0);
+  point_msg.y = point(1);
+  point_msg.z = point(2);
+
+  return point_msg;
+}
+
+inline geometry_msgs::Vector3 fromEigen2GeometryMsgVector3(const Eigen::Vector3f& point)
+{
+  geometry_msgs::Vector3 point_msg;
+  point_msg.x = point(0);
+  point_msg.y = point(1);
+  point_msg.z = point(2);
+
+  return point_msg;
+}
+
 
 }
 
