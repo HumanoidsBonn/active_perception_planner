@@ -6,6 +6,14 @@ StemEstimator::StemEstimator()
 
 }
 
+std::vector<Stem> StemEstimator::getStems()
+{
+  std::vector<Stem> stems;
+  std::scoped_lock(mutex_stems_);
+  stems = stems_;
+  return stems;
+}
+
 void StemEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets)
 {
   ROS_WARN("StemEstimator: detectionCallback");
@@ -21,7 +29,7 @@ void StemEstimator::processingThread()
   while (is_running_ && ros::ok())
   {
     ROS_WARN_STREAM("StemEstimator: Is running");
-    std::unique_lock<std::mutex> lk(mutex_);
+    std::unique_lock<std::mutex> lk(mutex_dets_);
     cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
     if (!this->is_running_)
       return;

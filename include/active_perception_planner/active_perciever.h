@@ -97,6 +97,9 @@ public:
       return motion_planner_->getMoveGroupHandle();
   }
 
+  Crop crop_;
+  void createCrop();
+
 
 protected:
   ActivePercieverStatus status_;

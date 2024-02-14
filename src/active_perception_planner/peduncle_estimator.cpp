@@ -6,6 +6,14 @@ PeduncleEstimator::PeduncleEstimator()
 
 }
 
+std::unordered_map<uint32_t, Peduncle> PeduncleEstimator::getPeduncles()
+{
+  std::unordered_map<uint32_t, Peduncle>  peduncles;
+  std::scoped_lock(mutex_peduncles_);
+  peduncles = peduncle_map_;
+  return peduncles;
+}
+
 void PeduncleEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets)
 {
   ROS_WARN("PeduncleEstimator detectionCallback");
@@ -21,7 +29,7 @@ void PeduncleEstimator::processingThread()
   while (is_running_ && ros::ok())
   {
     ROS_WARN_STREAM("PeduncleEstimator: Is running");
-    std::unique_lock<std::mutex> lk(mutex_);
+    std::unique_lock<std::mutex> lk(mutex_dets_);
     cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
     if (!this->is_running_)
       return;

@@ -577,3 +577,11 @@ void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointC
 
   pub_interested_fruit_.publish(getasRosMsgType(getCurrentEstimateOfTheInterestedFruit()));
 }
+
+void ActivePerciever::createCrop()
+{
+  auto stems = stem_estimator_->getStems();
+  auto peduncles = peduncle_estimator_->getPeduncles();
+
+  crop_ = crop_estimator_->createCrop(fruit_map_, peduncles, stems);
+}

@@ -54,6 +54,7 @@ class StemEstimator
     std::thread processing_thread_;
     std::atomic_bool is_running_;
     std::mutex mutex_dets_;
+    std::mutex mutex_stems_;
 
     std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets_;
 

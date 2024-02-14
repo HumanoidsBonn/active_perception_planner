@@ -31,6 +31,7 @@ class PeduncleEstimator
 
   void semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets);
 
+  std::unordered_map<uint32_t, Peduncle> getPeduncles();
 
   private:
 
@@ -50,7 +51,7 @@ class PeduncleEstimator
   cv::Mat depth_image_;
 
 
-  std::mutex mutex_;
+  std::mutex mutex_peduncles_;
   std::condition_variable cv_;
   std::thread processing_thread_;
   std::atomic_bool is_running_;
