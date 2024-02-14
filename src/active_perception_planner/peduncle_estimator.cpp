@@ -45,6 +45,8 @@ void PeduncleEstimator::mergePedunclesByPepperID(const std::vector<pointcloud_ro
     if(peduncle_map_.find(pepper_id) == peduncle_map_.end())
     {
       peduncle_map_[pepper_id].peduncle_cloud = peduncle_det.cloud_segment;
+      peduncle_map_[pepper_id].associated_fruit_id = pepper_id;
+      peduncle_map_[pepper_id].peduncle_id = peduncle_det.instance_id;
     }
     else
     {

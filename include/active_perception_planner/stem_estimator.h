@@ -59,6 +59,10 @@ class StemEstimator
 
     std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets_;
 
+    void mergeNewWithExistingStems(const std::vector<Stem>& new_stems);
+
+    bool checkIfStemsAreSame(const Stem& st1, const Stem st2, const float& dir_threshold, const float& xy_threshold);
+
     bool checkLineParallelToYAxis(double theta);
 
     cv::Vec4i findLongerLine(const cv::Vec4i& segment1, const cv::Vec4i& segment2);
@@ -69,7 +73,7 @@ class StemEstimator
 
     std::vector<std::vector<active_perception_planner::Line2D>> groupApproxCollinearSegments(const std::vector<active_perception_planner::Line2D>& lines);
 
-    void combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments);
+    std::vector<Stem> combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments);
 
     void regress3DLine(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& line_origin, Eigen::Vector3f& line_direction);
     

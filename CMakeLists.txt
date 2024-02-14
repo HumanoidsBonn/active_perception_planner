@@ -146,6 +146,7 @@ add_library(${PROJECT_NAME}
     src/${PROJECT_NAME}/voxblox_map.cpp
     src/${PROJECT_NAME}/stem_estimator.cpp
     src/${PROJECT_NAME}/peduncle_estimator.cpp
+    src/${PROJECT_NAME}/crop_estimator.cpp
 
 )
 

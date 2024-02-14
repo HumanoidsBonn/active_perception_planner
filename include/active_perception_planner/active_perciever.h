@@ -26,7 +26,7 @@
 #include<capsicum_superellipsoid_detector/se_detector.h>
 #include <active_perception_planner/voxblox_map.h>
 #include <pointcloud_roi/detected_roi_filter.h>
-
+#include "active_perception_planner/common.h"
 
 
 namespace active_perception_planner {
@@ -49,34 +49,6 @@ enum ActivePercieverStatus
   ERROR_NO_FRUITS_IN_MAP = -5,
   ERROR_SHAPE_COMPLETION = -6,
   ERROR_FRUIT_FOLLOWING = -7
-};
-
-typedef std::map<uint, superellipsoid::DetectedFruit> FruitMap;
-typedef std::map<uint, superellipsoid::DetectedFruit>::iterator FruitMapIterator;
-
-struct InterestedFruit: public superellipsoid::DetectedFruit
-{
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr current_observation;
-
-  InterestedFruit():superellipsoid::DetectedFruit(), current_observation(new pcl::PointCloud<pcl::PointXYZRGB>)
-  {
-  }
-
-  InterestedFruit(const superellipsoid::DetectedFruit& det_fruit):current_observation(new pcl::PointCloud<pcl::PointXYZRGB>)
-  {
-    this->valid_shape_completion_available = det_fruit.valid_shape_completion_available;
-    this->observed_fruit_shape = det_fruit.observed_fruit_shape;
-    this->completed_fruit_shape = det_fruit.completed_fruit_shape;
-    this->fruit_pose = det_fruit.fruit_pose;
-    this->observed_shape_centroid = det_fruit.observed_shape_centroid;
-  }
-};
-
-struct ObservedFruit
-{
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr fruit_observed;
-  uint32_t fruit_id;
-  Eigen::Vector3d fruit_obs_centroid;
 };
 
 class ActivePerciever{

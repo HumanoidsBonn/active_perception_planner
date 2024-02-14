@@ -30,7 +30,15 @@ void StemEstimator::processStemDetections()
 {
   std::vector<active_perception_planner::Line2D>  lines = computeLinesUsing2DContours(stem_detections_);
   std::vector<std::vector<active_perception_planner::Line2D>> grouped_segments = groupApproxCollinearSegments(lines);
-  combine3DSegmentsFromGrouped2DSegments(grouped_segments);
+  auto current_stems = combine3DSegmentsFromGrouped2DSegments(grouped_segments);
+  if(stems_.empty())
+  {
+    stems_.insert(stems_.begin(), current_stems.begin(), current_stems.end());
+  }
+  else
+  {
+    
+  }
 }
 
 void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets)
@@ -196,8 +204,9 @@ void StemEstimator::regress3DLine(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& 
   line_direction = eigenvectors.col(0);
 }
 
-void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments)
+std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments)
 {
+  std::vector<Stem> stems;
   for(unsigned i = 0; i < grouped_segments.size(); ++i)
   {
     auto group = grouped_segments[i];
@@ -214,7 +223,59 @@ void StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std
     regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
     stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
     findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
+    stems.push_back(stem);
   }
+  return stems;
+}
+
+void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems)
+{
+  std::unordered_set<int>new_stems_indices_already_merged;
+  for(int i = 0; i < stems_.size(); ++i)
+  {
+    bool found_similar_stem = false; 
+    for(int j = 0; j < new_stems.size(); ++j)
+    {
+      if(new_stems_indices_already_merged.count(j) > 0 || found_similar_stem)
+      {
+        continue;
+      }
+      bool is_same_stem = checkIfStemsAreSame(stems_[i], new_stems[j], 0.1, 0.1);
+      if(is_same_stem)
+      {
+        found_similar_stem = true;
+        *(stems_[i].line_cloud) += *(new_stems[i].line_cloud);
+        regress3DLine(stems_[i].line_cloud, stems_[i].line_origin, stems_[i].line_direction);
+        findTopAndBottomPoints(stems_[i].line_cloud, stems_[i].top_point, stems_[i].bottom_point);
+        new_stems_indices_already_merged.insert(j);
+        //j = new_stems.size();
+      }
+    }
+  }
+  for(int j = 0; j < new_stems.size(); ++j)
+  {
+    if(new_stems_indices_already_merged.count(j) < 1)
+    {
+      stems_.push_back(new_stems[j]);
+    }
+  }
+}
+
+bool StemEstimator::checkIfStemsAreSame(const Stem& st1, const Stem st2, const float& dir_threshold, const float& xy_threshold)
+{
+  // Calculate the difference in direction
+  float dir_diff = std::acos(st1.line_direction.dot(st2.line_direction));
+
+  // Calculate the intersection points of the lines with the xy-plane (z = 0)
+  Eigen::Vector2f intersection1 = st1.line_origin.head<2>() - (st1.line_origin.z() / st1.line_direction.z()) * st1.line_direction.head<2>();
+  Eigen::Vector2f intersection2 = st2.line_origin.head<2>() - (st2.line_origin.z() / st2.line_direction.z()) * st2.line_direction.head<2>();
+
+  // Calculate the Euclidean distance between the intersection points
+  float distance = (intersection1 - intersection2).norm();
+
+
+  // Check if the difference in direction and distance in XY plane are within thresholds
+  return (dir_diff < dir_threshold && distance < xy_threshold);
 }
 
 float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
