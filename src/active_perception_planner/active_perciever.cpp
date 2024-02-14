@@ -158,7 +158,12 @@ bool ActivePerciever::performLocalMappingMotion()
     }
     while(tracked_dets_available == false && (ros::Time::now()-t_start).toSec() < 1.0);
     if(tracked_dets_available)
-    auto detections = roi_detector_->readSemanticInstanceDetections();
+    {
+      auto detections = roi_detector_->readSemanticInstanceDetections();
+      peduncle_estimator_->semanticInstanceDetectionsCallback(detections);
+      stem_estimator_->semanticInstanceDetectionsCallback(detections);
+    }
+
   }
   return true; //getActivePercieverStatus();
 }

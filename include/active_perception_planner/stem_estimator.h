@@ -35,9 +35,7 @@ class StemEstimator
     public:
     StemEstimator();
 
-    void setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets);
-
-    void processStemDetections();
+    void semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets);
 
     std::vector<Stem> getStems();
 
@@ -58,6 +56,11 @@ class StemEstimator
     std::mutex mutex_dets_;
 
     std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets_;
+
+
+    void setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets);
+
+    void processStemDetections();
 
     void mergeNewWithExistingStems(const std::vector<Stem>& new_stems);
 

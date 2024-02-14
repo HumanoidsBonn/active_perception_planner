@@ -6,11 +6,21 @@ PeduncleEstimator::PeduncleEstimator()
 
 }
 
+void PeduncleEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets)
+{
+  ROS_WARN("PeduncleEstimator detectionCallback");
+  {
+    std::lock_guard<std::mutex> lk(mutex_dets_);
+    dets_ = dets;
+  }
+  cv_.notify_one();
+}
+
 void PeduncleEstimator::processingThread()
 {
   while (is_running_ && ros::ok())
   {
-    //ROS_WARN_STREAM("Is running");
+    ROS_WARN_STREAM("PeduncleEstimator: Is running");
     std::unique_lock<std::mutex> lk(mutex_);
     cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
     if (!this->is_running_)
