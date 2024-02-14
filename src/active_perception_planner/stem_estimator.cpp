@@ -3,7 +3,19 @@ using namespace active_perception_planner;
 
 StemEstimator::StemEstimator()
 {
+  is_running_ = true;
+  processing_thread_ = std::thread(&StemEstimator::processingThread, this);
+}
 
+StemEstimator::~StemEstimator()
+{
+  is_running_ = false;
+  cv_.notify_one();
+  try
+  {
+    processing_thread_.join();
+  }
+  catch (std::system_error&) {}
 }
 
 std::vector<Stem> StemEstimator::getStems()

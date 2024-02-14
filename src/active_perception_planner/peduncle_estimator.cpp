@@ -3,7 +3,20 @@ using namespace active_perception_planner;
 
 PeduncleEstimator::PeduncleEstimator()
 {
+  is_running_ = true;
 
+  processing_thread_ = std::thread(&PeduncleEstimator::processingThread, this);
+}
+
+PeduncleEstimator::~PeduncleEstimator()
+{
+  is_running_ = false;
+  cv_.notify_one();
+  try
+  {
+    processing_thread_.join();
+  }
+  catch (std::system_error&) {}
 }
 
 std::unordered_map<uint32_t, Peduncle> PeduncleEstimator::getPeduncles()

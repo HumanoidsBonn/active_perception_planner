@@ -35,6 +35,8 @@ class StemEstimator
     public:
     StemEstimator();
 
+    virtual ~StemEstimator();
+
     void semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets);
 
     std::vector<Stem> getStems();

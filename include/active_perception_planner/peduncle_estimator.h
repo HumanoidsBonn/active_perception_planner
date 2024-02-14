@@ -29,6 +29,8 @@ class PeduncleEstimator
 
   PeduncleEstimator();
 
+  virtual ~PeduncleEstimator();
+
   void semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets);
 
   std::unordered_map<uint32_t, Peduncle> getPeduncles();
