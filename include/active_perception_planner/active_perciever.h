@@ -27,6 +27,9 @@
 #include <active_perception_planner/voxblox_map.h>
 #include <pointcloud_roi/detected_roi_filter.h>
 #include "active_perception_planner/common.h"
+#include "active_perception_planner/peduncle_estimator.h"
+#include "active_perception_planner/stem_estimator.h"
+#include "active_perception_planner/crop_estimator.h"
 
 
 namespace active_perception_planner {
@@ -106,6 +109,11 @@ protected:
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
   std::shared_ptr<active_perception_planner::VoxbloxMap> map_;
+
+  std::shared_ptr<active_perception_planner::PeduncleEstimator> peduncle_estimator_;
+  std::shared_ptr<active_perception_planner::StemEstimator> stem_estimator_;
+  std::shared_ptr<active_perception_planner::CropEstimator> crop_estimator_;
+
 
   //voxblox map
   std::mutex layer_mutex_;

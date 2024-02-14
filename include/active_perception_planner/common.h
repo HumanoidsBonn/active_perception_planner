@@ -1,5 +1,5 @@
 #ifndef ACTIVE_PERCEPTION_PLANNER_COMMON_H
-#define ACTIVE_PERCEPTION_PLANNER_STEM_ESTIMATOR_H
+#define ACTIVE_PERCEPTION_PLANNER_COMMON_H
 
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
