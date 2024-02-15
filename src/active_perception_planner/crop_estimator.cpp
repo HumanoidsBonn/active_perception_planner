@@ -12,10 +12,19 @@ CropEstimator::CropEstimator()
 Crop CropEstimator::createCrop(const FruitMap& fruit_map, const std::unordered_map<uint32_t, Peduncle>& peduncle_map, const std::vector<Stem>& stems)
 {
   //Crop crop;
+  ROS_INFO_STREAM("Creating fruit_with_peduncle_map");
   auto fruit_with_peduncle_map = attachDetectedPedunclesToFruits(fruit_map, peduncle_map);
-  associateStemsWithFruits(fruit_with_peduncle_map, stems, 0.08f, 0.04f);
-
+  ROS_INFO_STREAM("Created fruit_with_peduncle_map");
+  if(stems.size()> 0)
+  {
+    ROS_INFO_STREAM("Creating associateStemsWithFruits");
+    associateStemsWithFruits(fruit_with_peduncle_map, stems, 0.08f, 0.04f);
+    ROS_INFO_STREAM("Created associateStemsWithFruits");
+  }
+  
+  ROS_INFO_STREAM("Creating crop");
   Crop crop(fruit_with_peduncle_map, stems);
+  ROS_INFO_STREAM("Created crop");
   return crop;
 }
 
@@ -57,6 +66,7 @@ std::unordered_map<uint32_t, DetectedFruitWithPeduncle> CropEstimator::attachDet
     }
   }
   assert(fruit_with_peduncle_map.size() == fruit_map.size());
+  
   return fruit_with_peduncle_map;
 }
 

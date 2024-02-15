@@ -29,9 +29,16 @@ std::unordered_map<uint32_t, Peduncle> PeduncleEstimator::getPeduncles()
 
 void PeduncleEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets)
 {
-  ROS_WARN("PeduncleEstimator detectionCallback");
+  ROS_INFO("PeduncleEstimator detectionCallback");
   {
+    ROS_INFO("PeduncleEstimator 1");
     std::lock_guard<std::mutex> lk(mutex_dets_);
+    ROS_INFO("PeduncleEstimator 2");
+    if(dets == nullptr)
+    {
+      ROS_WARN("SemanticInstanceDetections: nullptr");
+      return;
+    }
     dets_ = dets;
   }
   cv_.notify_one();

@@ -9,6 +9,12 @@
 <node name="active_perciever" pkg="active_perception_planner" type="active_perciever" output="screen"  launch-prefix="$(arg launch_prefix)">
     <param name="disable_motion"                value="false" />
     <param name="wait_time"                     value="0.0" />
-    <param name="disable_d405_processing"       value="false" />
+    <param name="disable_d405_processing"       value="true" />
+    <remap from="~pc" to="/zed2i/depth/points" />
+    <remap from="~rgb" to="/zed2i/left/image_rect_color" />
+    <remap from="~depth" to="/zed2i/depth/depth_registered" />
+    <remap from="~dets" to="/yolo_segmentation_ros_node/detections" />
+    <remap from="~tracked_dets" to="/yolo_segmentation_ros_node/tracked_detections" />
+    <remap from="~map_frame" to="trolley_local_link" />
 </node>
 </launch>

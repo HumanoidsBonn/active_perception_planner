@@ -275,7 +275,7 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
   if(active_perciever_->getActivePercieverStatus() == FRUIT_MAP_GENERATION_SUCCESS)
   {
     res.success = true;
-
+    
     Crop crop = active_perciever_->getCrop();
     FruitWithPeduncleMapIterator it;
     for(it = crop.fruit_with_peduncle_map.begin(); it != crop.fruit_with_peduncle_map.end(); ++it)

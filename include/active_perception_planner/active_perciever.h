@@ -258,6 +258,8 @@ protected:
     curr_est_interested_fruit_ = fruit;
   }
 
+  void processDetectionsAtSensorPose();
+
   oc2_interface_msgs::DetectedFruitOld getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
   oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
 

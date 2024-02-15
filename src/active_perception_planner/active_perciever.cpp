@@ -60,6 +60,8 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   }
 
   roi_detector_ = std::make_shared<pointcloud_roi::DetectedRoiFilter>(nhp_);
+  peduncle_estimator_ = std::make_shared<active_perception_planner::PeduncleEstimator>();
+  stem_estimator_     = std::make_shared<active_perception_planner::StemEstimator>();
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
   
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
@@ -148,24 +150,37 @@ bool ActivePerciever::performLocalMappingMotion()
       return false; //getActivePercieverStatus();
     }
     sleep(0.2);
-    bool tracked_dets_available = false;
-    roi_detector_->enableTrackedDetectionCallback(true);
-    auto t_start = ros::Time::now();
-    do
-    {
-      sleep(0.1);
-      tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
-    }
-    while(tracked_dets_available == false && (ros::Time::now()-t_start).toSec() < 1.0);
-    if(tracked_dets_available)
-    {
-      auto detections = roi_detector_->readSemanticInstanceDetections();
-      peduncle_estimator_->semanticInstanceDetectionsCallback(detections);
-      stem_estimator_->semanticInstanceDetectionsCallback(detections);
-    }
+    processDetectionsAtSensorPose();
 
   }
   return true; //getActivePercieverStatus();
+}
+
+void ActivePerciever::processDetectionsAtSensorPose()
+{
+  //ROS_INFO("ddddddddddddddddddddd processDetectionsAtSensorPose ddddddddddddddddd");
+  bool tracked_dets_available = false;
+  roi_detector_->enableTrackedDetectionCallback(true);
+  auto t_start = ros::Time::now();
+  auto detections = roi_detector_->readSemanticInstanceDetections();
+  do
+  {
+    sleep(0.1);
+    //tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
+    detections = roi_detector_->readSemanticInstanceDetections();
+  }
+  while(detections == nullptr && (ros::Time::now()-t_start).toSec() < 1.0);
+  if(detections != nullptr)
+  {
+    ROS_WARN_STREAM("Tracked Detections available");
+    //auto detections = roi_detector_->readSemanticInstanceDetections();
+    peduncle_estimator_->semanticInstanceDetectionsCallback(detections);
+    stem_estimator_->semanticInstanceDetectionsCallback(detections);
+  }
+  else
+  {
+    ROS_WARN_STREAM("Tracked Detections NOT available");
+  }
 }
 
 bool ActivePerciever::computeFruitShapes(const std::vector<vpp_msgs::InstancePointcloudwithCentroid>& instance_clouds_with_centroid)
@@ -321,6 +336,12 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
   removeFalsePositives();
   fruit_map_available_ = true;
   setActivePercieverStatus(FRUIT_MAP_GENERATION_SUCCESS);
+  ROS_INFO_STREAM("Creating peduncles");
+  auto peduncle_map = peduncle_estimator_->getPeduncles();
+  ROS_INFO_STREAM("Number of peduncles: "<<peduncle_map.size());
+  auto stems = stem_estimator_->getStems();
+  ROS_INFO_STREAM("Number of stems: "<<stems.size());
+  crop_ = crop_estimator_->createCrop(fruit_map_, peduncle_map, stems);
   return true;
 }
 
