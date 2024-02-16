@@ -31,9 +31,9 @@ void PeduncleEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr
 {
   ROS_INFO("PeduncleEstimator detectionCallback");
   {
-    ROS_INFO("PeduncleEstimator 1");
+    //ROS_INFO("PeduncleEstimator 1");
     std::lock_guard<std::mutex> lk(mutex_dets_);
-    ROS_INFO("PeduncleEstimator 2");
+    //ROS_INFO("PeduncleEstimator 2");
     if(dets == nullptr)
     {
       ROS_WARN("SemanticInstanceDetections: nullptr");
@@ -48,7 +48,7 @@ void PeduncleEstimator::processingThread()
 {
   while (is_running_ && ros::ok())
   {
-    ROS_WARN_STREAM("PeduncleEstimator: Is running");
+    //ROS_WARN_STREAM("PeduncleEstimator: Is running");
     std::unique_lock<std::mutex> lk(mutex_dets_);
     cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
     if (!this->is_running_)

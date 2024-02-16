@@ -288,8 +288,11 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       fruit.associated_stem_id = it->second.nearest_stem;
       fruit.has_peduncle = it->second.has_peduncle;
 
-      pcl::toROSMsg(*(it->second.fruit.observed_fruit_shape), fruit.observed_fruit);
-      pcl::toROSMsg(*(it->second.fruit.completed_fruit_shape), fruit.predicted_fruit);
+      if(it->second.fruit.observed_fruit_shape != nullptr)
+        pcl::toROSMsg(*(it->second.fruit.observed_fruit_shape), fruit.observed_fruit);
+
+      if(it->second.fruit.completed_fruit_shape != nullptr)
+        pcl::toROSMsg(*(it->second.fruit.completed_fruit_shape), fruit.predicted_fruit);
 
       fruit.peduncle.associated_fruit_id = it->second.peduncle.associated_fruit_id;
       fruit.peduncle.peduncle_id  = it->second.peduncle.peduncle_id;
@@ -298,7 +301,8 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
 
       fruit.nearby_stems.insert(fruit.nearby_stems.begin(), it->second.nearby_stems.begin(), it->second.nearby_stems.end());
 
-      pcl::toROSMsg(*(it->second.peduncle.peduncle_cloud), fruit.peduncle.cloud);      
+      if(it->second.peduncle.peduncle_cloud != nullptr)
+        pcl::toROSMsg(*(it->second.peduncle.peduncle_cloud), fruit.peduncle.cloud);      
 
       res.crop.detected_fruits.push_back(fruit);
     }

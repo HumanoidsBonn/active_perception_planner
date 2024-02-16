@@ -245,22 +245,29 @@ std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const st
     for(const auto& seg: group)
     {
       auto det = stem_detections_[seg.vector_idx];
-      if(det.instance_id == seg.instance_id)
+      if(det.instance_id == seg.instance_id && det.cloud_segment != nullptr)
       {
         *stem.line_cloud +=  *det.cloud_segment;
       }
     }
-    regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
-    stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
-    findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
-    stems.push_back(stem);
+    if(stem.line_cloud !=nullptr)
+    {
+      regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
+      stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
+      findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
+      stems.push_back(stem);
+    }
   }
+  stems.erase(std::remove_if(stems.begin(), stems.end(), [](const Stem& s) {
+        return s.line_cloud == nullptr;
+    }), stems.end());
+
   return stems;
 }
 
 void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems)
 {
-  std::unordered_set<int>new_stems_indices_already_merged;
+  std::unordered_set<int>new_stems_indices_already_merged; 
   for(int i = 0; i < stems_.size(); ++i)
   {
     bool found_similar_stem = false; 
@@ -270,13 +277,19 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
       {
         continue;
       }
+      ROS_INFO("1");
       bool is_same_stem = checkIfStemsAreSame(stems_[i], new_stems[j], 0.1, 0.1);
+      ROS_INFO("2");
       if(is_same_stem)
       {
         found_similar_stem = true;
-        *(stems_[i].line_cloud) += *(new_stems[i].line_cloud);
-        regress3DLine(stems_[i].line_cloud, stems_[i].line_origin, stems_[i].line_direction);
-        findTopAndBottomPoints(stems_[i].line_cloud, stems_[i].top_point, stems_[i].bottom_point);
+        ROS_INFO("3");
+        if(new_stems[i].line_cloud !=nullptr && stems_[i].line_cloud !=nullptr)
+          *(stems_[i].line_cloud) += *(new_stems[i].line_cloud);
+        else
+          continue;
+        ROS_INFO("4");
+        
         new_stems_indices_already_merged.insert(j);
         //j = new_stems.size();
       }
@@ -284,9 +297,24 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
   }
   for(int j = 0; j < new_stems.size(); ++j)
   {
-    if(new_stems_indices_already_merged.count(j) < 1)
+    if(new_stems_indices_already_merged.count(j) < 1 && new_stems[j].line_cloud !=nullptr)
     {
       stems_.push_back(new_stems[j]);
+    }
+  }
+  stems_.erase(std::remove_if(stems_.begin(), stems_.end(), [](const Stem& s) {
+        return s.line_cloud == nullptr;
+    }), stems_.end());
+
+  for (int i = 0; i < stems_.size(); ++i)
+  {
+    if(stems_[i].line_cloud!=nullptr)
+    {
+      ROS_INFO("5");
+      regress3DLine(stems_[i].line_cloud, stems_[i].line_origin, stems_[i].line_direction);
+      ROS_INFO("6");
+      findTopAndBottomPoints(stems_[i].line_cloud, stems_[i].top_point, stems_[i].bottom_point);
+      ROS_INFO("7");
     }
   }
 }
@@ -325,14 +353,18 @@ float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointC
 
 void StemEstimator::findTopAndBottomPoints(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point) 
 {
+  //ROS_INFO_STREAM("findTopAndBottomPoints 1"<<cloud->points.size());
   auto minZ = std::min_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
       return p1.z < p2.z;
   });
-
+  //ROS_INFO("findTopAndBottomPoints 2");
   auto maxZ = std::max_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
       return p1.z > p2.z;
   });
-
-  top_point = minZ->getVector3fMap();
-  bottom_point = maxZ->getVector3fMap();
+  //ROS_INFO("findTopAndBottomPoints 3");
+  if(maxZ != cloud->end())
+    top_point = maxZ->getVector3fMap();
+  if(minZ != cloud->end())
+    bottom_point = maxZ->getVector3fMap();
+  //ROS_INFO("findTopAndBottomPoints 4");
 }

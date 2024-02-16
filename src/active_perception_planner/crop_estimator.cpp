@@ -49,13 +49,22 @@ std::unordered_map<uint32_t, DetectedFruitWithPeduncle> CropEstimator::attachDet
       bool attached = isPeduncleAtTopCenterOfFruit(fruit, peduncle, 0.02);
       if(attached)
       {
-        found_peduncle_fruit_association = true;
-        assigned_peduncles.insert(peduncle.associated_fruit_id);
-        DetectedFruitWithPeduncle fruit_with_peduncle(fruit, peduncle);
-        fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_peduncle;
-        fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = true;
-        fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_id = fruit.fruit_id;
-        continue;
+        if(found_peduncle_fruit_association == false)
+        {
+          found_peduncle_fruit_association = true;
+          assigned_peduncles.insert(peduncle.associated_fruit_id);
+          DetectedFruitWithPeduncle fruit_with_peduncle(fruit, peduncle);
+          fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_peduncle;
+          fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = true;
+          fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_id = fruit.fruit_id;
+        }
+        else
+        {
+          ROS_INFO("Another peduncle part found for fruit which has peduncle");
+          assigned_peduncles.insert(peduncle.associated_fruit_id);
+          *(fruit_with_peduncle_map[fruit.fruit_id].peduncle.peduncle_cloud) += *(peduncle.peduncle_cloud);
+          calculatePeduncleEndpoints(fruit_with_peduncle_map[fruit.fruit_id].peduncle);
+        }
       }
     }
     if(found_peduncle_fruit_association == false)
@@ -100,9 +109,9 @@ void CropEstimator::associateStemsWithFruits(std::unordered_map<uint32_t, Detect
     {
       fruit_with_peduncle_map[itf->first].nearest_stem = nearest_stem_idx;
       auto nearest_stem = stems[nearest_stem_idx];
-      estimatePeduncleEndpointsWithNearestStem(fruit_with_peduncle, nearest_stem);
-      fruit_with_peduncle_map[itf->first].peduncle = fruit_with_peduncle.peduncle;
-      fruit_with_peduncle_map[itf->first].has_peduncle = true;
+      //estimatePeduncleEndpointsWithNearestStem(fruit_with_peduncle, nearest_stem);
+      //fruit_with_peduncle_map[itf->first].peduncle = fruit_with_peduncle.peduncle;
+      //fruit_with_peduncle_map[itf->first].has_peduncle = true;
     }    
   }
 }

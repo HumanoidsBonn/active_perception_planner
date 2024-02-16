@@ -32,6 +32,8 @@ namespace active_perception_planner
 
     private:
 
+    
+
     std::unordered_map<uint32_t, DetectedFruitWithPeduncle> attachDetectedPedunclesToFruits(const FruitMap& fruit_map, const std::unordered_map<uint32_t, Peduncle>& peduncle_map);
 
     void associateStemsWithFruits(std::unordered_map<uint32_t, DetectedFruitWithPeduncle> &fruit_with_peduncle_map, const std::vector<Stem> &stems, const float &belonging_threshold, const float &nearness_threshold);

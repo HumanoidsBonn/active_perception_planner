@@ -149,7 +149,7 @@ bool ActivePerciever::performLocalMappingMotion()
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
-    sleep(0.2);
+    sleep(0.5);
     processDetectionsAtSensorPose();
 
   }
@@ -162,12 +162,13 @@ void ActivePerciever::processDetectionsAtSensorPose()
   bool tracked_dets_available = false;
   roi_detector_->enableTrackedDetectionCallback(true);
   auto t_start = ros::Time::now();
-  auto detections = roi_detector_->readSemanticInstanceDetections();
+  std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = nullptr;
+  //auto detections = roi_detector_->readSemanticInstanceDetections();
   do
   {
-    sleep(0.1);
     //tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
     detections = roi_detector_->readSemanticInstanceDetections();
+    sleep(0.2);
   }
   while(detections == nullptr && (ros::Time::now()-t_start).toSec() < 1.0);
   if(detections != nullptr)
@@ -190,6 +191,7 @@ bool ActivePerciever::computeFruitShapes(const std::vector<vpp_msgs::InstancePoi
   fruits_list_.clear();
   for(const auto& inst_element:instance_clouds_with_centroid)
   {
+    ROS_INFO_STREAM("Instance Fruit size: "<<inst_element.num_points);
     superellipsoid::DetectedFruit fruit;
     ROS_DEBUG("0");
     pcl::fromROSMsg(inst_element.pointcloud, *(fruit.observed_fruit_shape));
