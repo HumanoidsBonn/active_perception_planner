@@ -1,6 +1,20 @@
 ﻿#include "active_perception_planner/voxblox_map.h"
+#include <voxblox_ros/ros_params.h>
 
 using namespace active_perception_planner;
+
+VoxbloxMap::VoxbloxMap(ros::NodeHandle& nhp):nh_(""), nhp_(nhp)
+{
+  esdf_server_.reset(new voxblox::EsdfServer(nh_, nhp_));
+
+  // cache constants
+  c_voxel_size_ = esdf_server_->getEsdfMapPtr()->voxel_size();
+  c_block_size_ = esdf_server_->getEsdfMapPtr()->block_size();
+  c_maximum_weight_ = voxblox::getTsdfIntegratorConfigFromRosParam(nhp_)
+                          .max_weight;  // direct access is not exposed
+}
+voxblox::EsdfServer& VoxbloxMap::getESDFServer() { return *esdf_server_; }
+
 
 bool VoxbloxMap::isObserved(const Eigen::Vector3d& point) {
   return esdf_server_->getEsdfMapPtr()->isObserved(point);
@@ -42,18 +56,18 @@ bool VoxbloxMap::getVoxelCenter(Eigen::Vector3d* center,
   return true;
 }
 
-// get the stored TSDF distance
+// get the stored ESDF distance
 double VoxbloxMap::getVoxelDistance(const Eigen::Vector3d& point) {
   voxblox::Point voxblox_point(point.x(), point.y(), point.z());
-  voxblox::Block<voxblox::TsdfVoxel>::Ptr block =
-      esdf_server_->getTsdfMapPtr()
-          ->getTsdfLayerPtr()
+  voxblox::Block<voxblox::EsdfVoxel>::Ptr block =
+      esdf_server_->getEsdfMapPtr()
+          ->getEsdfLayerPtr()
           ->getBlockPtrByCoordinates(voxblox_point);
   if (block) {
-    voxblox::TsdfVoxel* tsdf_voxel =
+    voxblox::EsdfVoxel* esdf_voxel =
         block->getVoxelPtrByCoordinates(voxblox_point);
-    if (tsdf_voxel) {
-      return tsdf_voxel->distance;
+    if (esdf_voxel) {
+      return esdf_voxel->distance;
     }
   }
   return 0.0;

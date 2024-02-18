@@ -15,26 +15,27 @@ find_package(VDBFusion REQUIRED)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED
-    std_srvs
-    capsicum_superellipsoid_detector
-    vpp_msgs
-    oc2_interface_msgs
-    moveit_motion_planner
-    rospy
-    roscpp
-    dynamic_reconfigure
-    voxblox
-    voxblox_msgs
-    voxblox_ros
-    tf2_ros
-    tf2_geometry_msgs
-    tf2_sensor_msgs
-    tf2
-    tf2_tools
-    pcl_ros
-    pointcloud_roi_msgs
-    pointcloud_roi
+  std_srvs
+  capsicum_superellipsoid_detector
+  vpp_msgs
+  oc2_interface_msgs
+  moveit_motion_planner
+  rospy
+  roscpp
+  dynamic_reconfigure
+  voxblox
+  voxblox_msgs
+  voxblox_ros
+  tf2_ros
+  tf2_geometry_msgs
+  tf2_sensor_msgs
+  tf2
+  tf2_tools
+  pcl_ros
+  pointcloud_roi_msgs
+  pointcloud_roi
 )
+
 
 find_package(yaml-cpp REQUIRED)
 include_directories(${YAML_INCLUDE_DIRS})
@@ -113,7 +114,7 @@ include_directories(${YAML_INCLUDE_DIRS})
 ##     and list every .cfg file to be processed
 
 ## Generate dynamic reconfigure parameters in the 'cfg' folder
- generate_dynamic_reconfigure_options(
+generate_dynamic_reconfigure_options(
    cfg/ActivePercieverConfig.cfg
  )
 
@@ -143,16 +144,17 @@ catkin_package(
 include_directories(
  include
  ${catkin_INCLUDE_DIRS}
+ ${dawn_ik_include_dirs}
 )
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-    src/${PROJECT_NAME}/active_perciever.cpp
-    src/${PROJECT_NAME}/voxblox_map.cpp
-    src/${PROJECT_NAME}/stem_estimator.cpp
-    src/${PROJECT_NAME}/peduncle_estimator.cpp
-    src/${PROJECT_NAME}/crop_estimator.cpp
-
+  src/${PROJECT_NAME}/active_perciever.cpp
+  src/${PROJECT_NAME}/voxblox_map.cpp
+  src/${PROJECT_NAME}/stem_estimator.cpp
+  src/${PROJECT_NAME}/peduncle_estimator.cpp
+  src/${PROJECT_NAME}/crop_estimator.cpp
+  src/${PROJECT_NAME}/dawn_ik_controller.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}

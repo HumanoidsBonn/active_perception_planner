@@ -16,6 +16,9 @@ class VoxbloxMap
 {
 
 public:
+
+  VoxbloxMap(ros::NodeHandle& nhp);
+
 // check whether point is part of the map
   bool isObserved(const Eigen::Vector3d& point);
 
@@ -44,7 +47,7 @@ public:
 protected:
   ros::NodeHandle nh_, nhp_;
 
-  // esdf server that contains the map, subscribe to external ESDF/TSDF updates
+  // esdf server that contains the map, subscribe to external ESDF/ESDF updates
    std::unique_ptr<voxblox::EsdfServer> esdf_server_;
 
    // cache constants
