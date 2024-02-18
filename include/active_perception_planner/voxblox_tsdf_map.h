@@ -17,9 +17,9 @@ class VoxbloxTsdfMap
   voxblox::TsdfVoxel getVoxelFromMap(const voxblox::Point& point);
 
     // get the stored weight
-  double getVoxelWeight(const Eigen::Vector3f& point);
+  virtual double getVoxelWeight(const Eigen::Vector3f& point);
 
-  double getVoxelDistance(const Eigen::Vector3f& point);
+  virtual double getVoxelDistance(const Eigen::Vector3f& point);
 
   // get the maximum allowed weight (return 0 if using uncapped weights)
   double getMaximumWeight();
