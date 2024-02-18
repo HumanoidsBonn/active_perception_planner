@@ -26,7 +26,6 @@
 
 #include<moveit_motion_planner/motion_planner.h>
 #include<capsicum_superellipsoid_detector/se_detector.h>
-#include <active_perception_planner/voxblox_map.h>
 #include <pointcloud_roi/detected_roi_filter.h>
 #include "active_perception_planner/common.h"
 #include "active_perception_planner/peduncle_estimator.h"
@@ -119,7 +118,6 @@ protected:
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
-  std::shared_ptr<active_perception_planner::VoxbloxMap> map_;
 
   std::shared_ptr<active_perception_planner::PeduncleEstimator> peduncle_estimator_;
   std::shared_ptr<active_perception_planner::StemEstimator> stem_estimator_;

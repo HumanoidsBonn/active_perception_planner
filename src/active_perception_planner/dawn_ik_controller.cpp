@@ -45,7 +45,7 @@ bool DawnIKController::updateGoal(DawnIKControllerMode mode, const DawnIKGoals& 
   }
   else
   {
-    ROS_ERROR("DawnIKControl::updateGoal: Unknown mode: %d", mode);
+    ROS_ERROR("DawnIKController::updateGoal: Unknown mode: %d", mode);
     return false;
   }
   pub_goal_.publish(goal);

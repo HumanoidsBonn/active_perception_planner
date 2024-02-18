@@ -405,34 +405,34 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 bool ActivePerciever::findOptimumFruitObservationPoses(std::deque<geometry_msgs::Pose>& optimum_poses)
 {
 
-  Eigen::Vector3d ray_origin, ray_pt;
-  ray_origin(0) = interested_fruit_.fruit_pose.position.x;
-  ray_origin(1) = interested_fruit_.fruit_pose.position.y;
-  ray_origin(2) = interested_fruit_.fruit_pose.position.z;
+  // Eigen::Vector3d ray_origin, ray_pt;
+  // ray_origin(0) = interested_fruit_.fruit_pose.position.x;
+  // ray_origin(1) = interested_fruit_.fruit_pose.position.y;
+  // ray_origin(2) = interested_fruit_.fruit_pose.position.z;
 
-  ray_pt(0) = interested_fruit_.observed_shape_centroid.x;
-  ray_pt(1) = interested_fruit_.observed_shape_centroid.y;
-  ray_pt(2) = interested_fruit_.observed_shape_centroid.z;
+  // ray_pt(0) = interested_fruit_.observed_shape_centroid.x;
+  // ray_pt(1) = interested_fruit_.observed_shape_centroid.y;
+  // ray_pt(2) = interested_fruit_.observed_shape_centroid.z;
 
-  bool success = false;
-  optimum_poses.clear();
-  for(int num_tries = 0; num_tries < max_num_tries_; num_tries++)
-  {
-    Eigen::Vector3d inter_pt;
-    plane_point_.setZero();
-    plane_point_(2) = obs_z_plane_;
-    if(calcLinePlaneIntersection(inter_pt, ray_origin, ray_pt, plane_normal_, plane_point_))
-    {
-      if(map_->getVoxelState(inter_pt) == VoxelState::FREE)
-      {
-        success = true;
-        auto view_pose = fromEigen2GeometryMsg(inter_pt, ray_pt-ray_origin, view_dir_, cam_quat_);
-        optimum_poses.push_back(view_pose);
-      }
-    }
-    plane_point_(2) = obs_z_plane_ + voxel_factor_*map_->getVoxelSize();
-  }
-  return success;
+  // bool success = false;
+  // optimum_poses.clear();
+  // for(int num_tries = 0; num_tries < max_num_tries_; num_tries++)
+  // {
+  //   Eigen::Vector3d inter_pt;
+  //   plane_point_.setZero();
+  //   plane_point_(2) = obs_z_plane_;
+  //   if(calcLinePlaneIntersection(inter_pt, ray_origin, ray_pt, plane_normal_, plane_point_))
+  //   {
+  //     if(map_->getVoxelState(inter_pt) == VoxelState::FREE)
+  //     {
+  //       success = true;
+  //       auto view_pose = fromEigen2GeometryMsg(inter_pt, ray_pt-ray_origin, view_dir_, cam_quat_);
+  //       optimum_poses.push_back(view_pose);
+  //     }
+  //   }
+  //   plane_point_(2) = obs_z_plane_ + voxel_factor_*map_->getVoxelSize();
+  // }
+  return true;
 }
 
 bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)

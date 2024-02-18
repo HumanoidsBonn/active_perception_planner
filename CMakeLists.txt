@@ -150,11 +150,12 @@ include_directories(
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/active_perciever.cpp
-  src/${PROJECT_NAME}/voxblox_map.cpp
   src/${PROJECT_NAME}/stem_estimator.cpp
   src/${PROJECT_NAME}/peduncle_estimator.cpp
   src/${PROJECT_NAME}/crop_estimator.cpp
   src/${PROJECT_NAME}/dawn_ik_controller.cpp
+  src/${PROJECT_NAME}/online_viewpoint_planner.cpp
+  src/${PROJECT_NAME}/voxblox_tsdf_map.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
