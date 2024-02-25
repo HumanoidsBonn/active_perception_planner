@@ -68,7 +68,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   peduncle_estimator_ = std::make_shared<active_perception_planner::PeduncleEstimator>();
   stem_estimator_     = std::make_shared<active_perception_planner::StemEstimator>();
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
-  ik_controller_ = std::make_shared<active_perception_planner::DawnIKController>();
+  ik_controller_ = std::make_shared<active_perception_planner::DawnIKController>(nhp_);
   
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
@@ -474,7 +474,10 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 
 bool ActivePerciever::stopFollowFruit()
 {
-  timer_fruit_follower_.stop();
+  if(timer_fruit_follower_.hasStarted() == true)
+    timer_fruit_follower_.stop();
+  if(timer_fruit_estimator_.hasStarted() == true)  
+    timer_fruit_estimator_.stop();
 //  while(timer_fruit_follower_.hasStarted() == false)
 //  {
 //    sleep(0.5);

@@ -31,6 +31,7 @@
 #include "active_perception_planner/peduncle_estimator.h"
 #include "active_perception_planner/stem_estimator.h"
 #include "active_perception_planner/crop_estimator.h"
+#include "active_perception_planner/online_fruit_estimator.h"
 
 #include "active_perception_planner/dawn_ik_controller.h"
 #include "active_perception_planner/voxblox_tsdf_map.h"
@@ -125,6 +126,8 @@ protected:
   std::shared_ptr<active_perception_planner::PeduncleEstimator> peduncle_estimator_;
   std::shared_ptr<active_perception_planner::StemEstimator> stem_estimator_;
   std::shared_ptr<active_perception_planner::CropEstimator> crop_estimator_;
+
+  std::shared_ptr<active_perception_planner::OnlineFruitEstimator> online_fruit_estimator_;
 
   //voxblox map
   // std::mutex layer_mutex_;
