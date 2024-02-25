@@ -33,6 +33,7 @@ namespace active_perception_planner
     private:
 
     
+    std::unordered_map<uint32_t, Peduncle> mergeSamePeduncles(const std::unordered_map<uint32_t, Peduncle>& peduncle_map);
 
     std::unordered_map<uint32_t, DetectedFruitWithPeduncle> attachDetectedPedunclesToFruits(const FruitMap& fruit_map, const std::unordered_map<uint32_t, Peduncle>& peduncle_map);
 

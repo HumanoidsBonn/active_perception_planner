@@ -32,6 +32,9 @@
 #include "active_perception_planner/stem_estimator.h"
 #include "active_perception_planner/crop_estimator.h"
 
+#include "active_perception_planner/dawn_ik_controller.h"
+#include "active_perception_planner/voxblox_tsdf_map.h"
+
 
 namespace active_perception_planner {
 
@@ -112,7 +115,7 @@ protected:
   ActivePercieverStatus status_;
   ros::NodeHandle nh_, nhp_;
 
-  ros::Timer timer_fruit_follower_, timer_status_publisher_;
+  ros::Timer timer_fruit_follower_, timer_status_publisher_, timer_fruit_estimator_;
 
   bool is_move_group_used_ = true;
 
@@ -123,13 +126,15 @@ protected:
   std::shared_ptr<active_perception_planner::StemEstimator> stem_estimator_;
   std::shared_ptr<active_perception_planner::CropEstimator> crop_estimator_;
 
-
   //voxblox map
-  std::mutex layer_mutex_;
-  bool layer_present_;
-  std::shared_ptr<voxblox::Layer<voxblox::TsdfVoxel>> map_layer_;
-  std::shared_ptr<voxblox::Block<voxblox::TsdfVoxel>> block_;
-  voxblox::TsdfVoxel voxel_;
+  // std::mutex layer_mutex_;
+  // bool layer_present_;
+  // std::shared_ptr<voxblox::Layer<voxblox::TsdfVoxel>> map_layer_;
+  // std::shared_ptr<voxblox::Block<voxblox::TsdfVoxel>> block_;
+  // voxblox::TsdfVoxel voxel_;
+
+  std::shared_ptr<active_perception_planner::DawnIKController> ik_controller_;
+
 
   std::string planning_group_name_;
   std::string base_frame_;
@@ -163,7 +168,7 @@ protected:
   std::vector<superellipsoid::DetectedFruit> fruits_list_;
   FruitMap fruit_map_;
   bool fruit_map_available_ = false;
-  superellipsoid::DetectedFruit interested_fruit_;
+  DetectedFruitWithPeduncle interested_fruit_;
 
   float obs_z_plane_;
 
@@ -185,6 +190,15 @@ protected:
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
   bool recd_tracked_detections_ = false;
 
+  bool use_fixed_pose_ = true; 
+  bool initial_motion_done_ = false;
+  std::vector<double> fixed_view_position_; 
+  Eigen::Vector3d vp_origin_;
+  
+  bool moveToPose(const geometry_msgs::Pose&);
+  geometry_msgs::Pose computeViewPose(const Eigen::Vector3d& fruit_target, const Eigen::Vector3d& vp_origin, const tf2::Quaternion& cam_quat);
+  bool computeInitialFixedViewPose(geometry_msgs::Pose& view_pose, const geometry_msgs::Point& fruit_target);
+  bool getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame = "world");
 
   //sensor_msgs::JointState
 
@@ -216,10 +230,10 @@ protected:
   bool retrieveInterestedFruit(const uint &fruit_id, const geometry_msgs::Point& fruit_centre);
   bool retrieveInterestedFruit(const uint &desired_fruit_id);
 
-  std::deque<superellipsoid::DetectedFruit> interested_fruit_detections_buffer_;
-  superellipsoid::DetectedFruit curr_est_interested_fruit_, prev_est_interested_fruit_;
+  std::deque<DetectedFruitWithPeduncle> interested_fruit_detections_buffer_;
+  DetectedFruitWithPeduncle curr_est_interested_fruit_, prev_est_interested_fruit_;
 
-  bool isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold = 0.01);
+  bool isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold = 0.01);
 
   bool updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud); // const geometry_msgs::Point& fruit_centre);
 
@@ -236,17 +250,19 @@ protected:
 
   void followFruitCallback(const ros::TimerEvent&);
 
+  void estimateFruitPoseFromCurrenDetectionsCallback(const ros::TimerEvent&);
+
   int min_cluster_size_, max_cluster_size_, cluster_tolerance_;
   std::string world_frame_;
 
   std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl);
 
-  inline superellipsoid::DetectedFruit getCurrentEstimateOfTheInterestedFruit()
+  inline DetectedFruitWithPeduncle getCurrentEstimateOfTheInterestedFruit()
   {
     return curr_est_interested_fruit_;
   }
 
-  inline void setCurrentEstimateOfTheInterestedFruit(const superellipsoid::DetectedFruit& fruit, bool fruit_est_initialised = true)
+  inline void setCurrentEstimateOfTheInterestedFruit(const DetectedFruitWithPeduncle& fruit, bool fruit_est_initialised = true)
   {
     if(fruit_est_initialised)
       prev_est_interested_fruit_ = curr_est_interested_fruit_;
@@ -258,7 +274,7 @@ protected:
 
   void processDetectionsAtSensorPose();
 
-  oc2_interface_msgs::DetectedFruitOld getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
+  //oc2_interface_msgs::DetectedFruitOld getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
   oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
 
 };

@@ -7,7 +7,8 @@
 #include <pcl_ros/transforms.h>
 #include <pcl_conversions/pcl_conversions.h>
 #include "yaml-cpp/yaml.h"
-
+#include <tf2_eigen/tf2_eigen.h>
+#include <geometry_msgs/TransformStamped.h>
 
 using namespace active_perception_planner;
 using namespace utils;
@@ -30,6 +31,10 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
   nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
+  nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.0508, -0.731, 1.45});
+
+  vp_origin_ = Eigen::Map<Eigen::Vector3d, Eigen::Unaligned>(fixed_view_position_.data(), fixed_view_position_.size());
+  
 
   mapping_motion_type_ = "PTP";
   if(disable_motion_ == false)
@@ -63,13 +68,15 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   peduncle_estimator_ = std::make_shared<active_perception_planner::PeduncleEstimator>();
   stem_estimator_     = std::make_shared<active_perception_planner::StemEstimator>();
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
+  ik_controller_ = std::make_shared<active_perception_planner::DawnIKController>();
   
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
   get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("/gsm_node/get_scene_pointcloud");
 
-  timer_fruit_follower_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
+  timer_fruit_follower_   = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
   timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
+  timer_fruit_estimator_  = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback, this);
 
   sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
 
@@ -93,42 +100,21 @@ bool ActivePerciever::clearSceneMap()
   std_srvs::Empty empty_srv;
   if(fruit_map_available_)
   {
-    // if (!reset_map_client_.call(empty_srv))
-    // {
-    //     ROS_ERROR("Failed to call reset vpp map service");
-    //     //return false;
-    // }
+    if (!reset_map_client_.call(empty_srv))
+    {
+      ROS_ERROR("Failed to call reset vpp map service");
+      //return false;
+    }
   }
   fruit_map_.clear();
+  crop_.fruit_with_peduncle_map.clear();
+  crop_.stems.clear();
   fruit_map_available_ = false;
   return true;
 }
 
 bool ActivePerciever::performLocalMappingMotion()
 {
-  // auto config_package_path_ = ros::package::getPath("active_perception_planner");
-  // std::string config_filepath = config_package_path_ + "/config/" + "planner.yaml";
-
-  // YAML::Node config_yaml = YAML::LoadFile(config_filepath);
-
-  // bool poses_list_found = false;
-  // int i = 0;
-  // for (YAML::const_iterator it = config_yaml.begin(); it != config_yaml.end(); it++)
-  // {
-  //   ROS_INFO_STREAM("YAML Node No. "<<i<<"\t Name: "<<it->first.as<std::string>());
-  //   i++;
-  //   YAML::Node configs = it->second;
-  //   if(auto it1->first.as<std::string>() == "pose_list")
-  //   {
-  //     poses_list_found = true;
-  //     mapping_poses_list_ = it->second.as<std::vector<std::string>>();
-  //     ROS_INFO_STREAM("Mapping poses list: "<<mapping_poses_list_[0]);
-  //   }
-  // }
-  // if(!poses_list_found)
-  // {
-  //   ROS_ERROR("Poses list not found in planner.yaml");
-  // }
 
   if(checkManipulationArmsStowed() == false)
   {
@@ -306,6 +292,7 @@ bool ActivePerciever::createSceneMapWithCompletedFruits(vpp_msgs::GetListInstanc
 {
   setActivePercieverStatus(FRUIT_MAP_GENERATION_IN_PROGRESS);
   fruit_map_.clear();
+  sleep(0.5);
   // vpp_msgs::GetScenePointcloud get_scene_srv;
   // if(!get_scenecloud_client_.call(get_scene_srv))
   // {
@@ -385,19 +372,19 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id, cons
   if(it != fruit_map_.end())
   {
    interested_fruit_ = it->second;
-   success = isFruitCentreSimilar(desired_fruit_centre, interested_fruit_.fruit_pose.position);
+   success = isFruitCentreSimilar(desired_fruit_centre, interested_fruit_.fruit.fruit_pose.position);
   }
   return success;
 }
 
 bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
 {
-  FruitMapIterator it = fruit_map_.find(desired_fruit_id);
+  FruitWithPeduncleMapIterator it = crop_.fruit_with_peduncle_map.find(desired_fruit_id);
   bool success = false;
-  if(it != fruit_map_.end())
+  if(it != crop_.fruit_with_peduncle_map.end())
   {
-   interested_fruit_ = it->second;
-   return true;
+    interested_fruit_ = it->second;
+    return true;
   }
   return false;
 }
@@ -463,7 +450,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
-  if(moveToInterestedFruitObservationPose(fruit_id))
+  if(retrieveInterestedFruit(fruit_id))
   {
     if(fruit_est_initialised_ == false)
     {
@@ -475,6 +462,10 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
     if(fruit_est_initialised_ && timer_fruit_follower_.hasStarted() == false)
     {
       timer_fruit_follower_.start();
+    }
+    if(timer_fruit_estimator_.hasStarted() == false)
+    {
+      timer_fruit_estimator_.start();
     }
     return true;
   }
@@ -501,16 +492,70 @@ void ActivePerciever::publishStatusTimerCallback(const ros::TimerEvent&)
   pub_status_advertiser_.publish(status_msg);
 }
 
-
 void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 {
-  auto fruit= getasRosMsgType(interested_fruit_);
-  pub_interested_fruit_.publish(fruit);
+  auto fruit_with_peduncle = getCurrentEstimateOfTheInterestedFruit();
+  
+  if(initial_motion_done_ == false)
+  {
+    ik_controller_->stopDawnIK();
+    if(use_fixed_pose_)
+    {
+      bool initial_motion_success = false;
+      bool compute_view_pose_success = false;
+      geometry_msgs::Pose view_pose;
+      compute_view_pose_success = computeInitialFixedViewPose(view_pose, fruit_with_peduncle.fruit.fruit_pose.position);
+      if(compute_view_pose_success)
+      {
+        initial_motion_success = moveToPose(view_pose);
+      }
+      initial_motion_done_ = true;
+      if(initial_motion_success == false)
+      {
+        ROS_ERROR_STREAM("Cannot move to initial pose using motion planning. Using Lookat Pose directly");
+        if(ik_controller_->startDawnIK())
+        {
+          if(compute_view_pose_success)
+          {
+            if(ik_controller_->fullPoseTarget(view_pose))
+              return;
+          }
+        }
+      }
+      else
+      {
+        ROS_INFO_STREAM("Success! Moved to Initial Fixed View Pose using moveit");
+        return; 
+      }
+    }
+  }
+  else
+  {
+    if(use_fixed_pose_)
+    {
+      if(!ik_controller_->isIKControllerEnabled())
+        ik_controller_->startDawnIK();
+
+      Eigen::Vector3d fruit_target_eigen;
+      tf2::fromMsg(fruit_with_peduncle.fruit.fruit_pose.position, fruit_target_eigen);
+      ik_controller_->lookAtTarget(vp_origin_, fruit_target_eigen); 
+    }
+    else
+    {
+
+    }
+  }
+  // auto fruit= getasRosMsgType(interested_fruit_);
+  // pub_interested_fruit_.publish(fruit);
 }
 
-bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const superellipsoid::DetectedFruit& prev_det, superellipsoid::DetectedFruit& potential_candidate, double center_threshold)
+void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::TimerEvent& e)
 {
-  return isFruitCentreSimilar(prev_det.fruit_pose.position, potential_candidate.fruit_pose.position, center_threshold);
+
+}
+bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)
+{
+  return isFruitCentreSimilar(prev_det.fruit.fruit_pose.position, potential_candidate.fruit.fruit_pose.position, center_threshold);
 }
 
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl)
@@ -549,8 +594,8 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
   prev_est_interested_fruit_ = curr_est_interested_fruit_;
   for(auto& cluster: clusters)
   {
-    superellipsoid::DetectedFruit possible_same_fruit;
-    if(se_detector_->completeFruitShape(cluster, possible_same_fruit) == false)
+    DetectedFruitWithPeduncle possible_same_fruit;
+    if(se_detector_->completeFruitShape(cluster, possible_same_fruit.fruit) == false)
       continue;
 
     if(isDetectedFruitCurrentInterestedOne(prev_est_interested_fruit_, possible_same_fruit))
@@ -565,17 +610,17 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
   return false;
 }
 
-oc2_interface_msgs::DetectedFruitOld ActivePerciever::getasRosMsgType(const superellipsoid::DetectedFruit& fruit)
-{
-  oc2_interface_msgs::DetectedFruitOld fruit_msg;
+// oc2_interface_msgs::DetectedFruitOld ActivePerciever::getasRosMsgType(const superellipsoid::DetectedFruit& fruit)
+// {
+//   oc2_interface_msgs::DetectedFruitOld fruit_msg;
 
-  fruit_msg.fruit_id = fruit.fruit_id;
-  pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
-  pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
-  fruit_msg.fruit_pose = fruit.fruit_pose;
+//   fruit_msg.fruit_id = fruit.fruit_id;
+//   pcl::toROSMsg(*fruit.observed_fruit_shape, fruit_msg.observed_fruit);
+//   pcl::toROSMsg(*fruit.completed_fruit_shape, fruit_msg.predicted_fruit);
+//   fruit_msg.fruit_pose = fruit.fruit_pose;
 
-  return fruit_msg;
-}
+//   return fruit_msg;
+// }
 
 oc2_interface_msgs::InterestedFruit ActivePerciever:: getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit)
 {
@@ -598,7 +643,7 @@ void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointC
   if(updateInterestedFruit(pc_msg) == false)
     return;
 
-  pub_interested_fruit_.publish(getasRosMsgType(getCurrentEstimateOfTheInterestedFruit()));
+  //pub_interested_fruit_.publish(getasRosMsgType(getCurrentEstimateOfTheInterestedFruit()));
 }
 
 void ActivePerciever::createCrop()
@@ -607,4 +652,57 @@ void ActivePerciever::createCrop()
   auto peduncles = peduncle_estimator_->getPeduncles();
 
   crop_ = crop_estimator_->createCrop(fruit_map_, peduncles, stems);
+}
+
+bool ActivePerciever::getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame)
+{
+  try
+  {
+    transform = tf_buffer_.lookupTransform(target_frame, original_frame, ros::Time(0));
+  }
+  catch (const tf2::TransformException &e)
+  {
+    ROS_ERROR_STREAM("Couldn't find transform from "<<original_frame<<" to "<< target_frame<<" : " << e.what());
+    return false;
+  }
+  return true;
+}
+
+bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::Pose& view_pose, const geometry_msgs::Point& fruit_target)
+{
+  geometry_msgs::TransformStamped camera_tf;
+  if(getPose(camera_tf, "zed2i_camera_left_optical_frame", "world")== false)
+  {
+    return false;
+  }
+  tf2::Quaternion cam_quat;
+  tf2::fromMsg(camera_tf.transform.rotation, cam_quat);
+
+  Eigen::Vector3d fruit_target_eigen;
+  tf2::fromMsg(fruit_target, fruit_target_eigen);
+
+  view_pose = computeViewPose(fruit_target_eigen, vp_origin_, cam_quat);
+  return true;
+}
+
+geometry_msgs::Pose ActivePerciever::computeViewPose(const Eigen::Vector3d& fruit_target, const Eigen::Vector3d& vp_origin, const tf2::Quaternion& cam_quat)
+{
+  Eigen::Vector3d dir_vec = (fruit_target - vp_origin).normalized();
+  const tf2::Matrix3x3 cam_mat(cam_quat);
+  tf2::Vector3 view_dir(cam_mat.getColumn(2));
+
+  auto view_quat = utils::dirVecToQuat(dir_vec, cam_quat,view_dir);
+  geometry_msgs::Pose view_pose;
+
+  tf::pointEigenToMsg(vp_origin, view_pose.position);
+  view_pose.orientation = tf2::toMsg(view_quat);
+
+  return view_pose;
+}
+
+bool ActivePerciever::moveToPose(const geometry_msgs::Pose& view_pose)
+{
+  motion_planner_->getMoveGroupHandle()->setPlannerId(planner_id_);
+  ROS_WARN_STREAM("mapping_motion_type_"<<planner_id_);
+  return motion_planner_->movePoseTarget(view_pose, planner_id_);
 }

@@ -277,18 +277,18 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
       {
         continue;
       }
-      ROS_INFO("1");
+      //ROS_INFO("1");
       bool is_same_stem = checkIfStemsAreSame(stems_[i], new_stems[j], 0.1, 0.1);
-      ROS_INFO("2");
+      //ROS_INFO("2");
       if(is_same_stem)
       {
         found_similar_stem = true;
-        ROS_INFO("3");
+        //ROS_INFO("3");
         if(new_stems[i].line_cloud !=nullptr && stems_[i].line_cloud !=nullptr)
           *(stems_[i].line_cloud) += *(new_stems[i].line_cloud);
         else
           continue;
-        ROS_INFO("4");
+        //ROS_INFO("4");
         
         new_stems_indices_already_merged.insert(j);
         //j = new_stems.size();
@@ -310,11 +310,11 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
   {
     if(stems_[i].line_cloud!=nullptr)
     {
-      ROS_INFO("5");
+      //ROS_INFO("5");
       regress3DLine(stems_[i].line_cloud, stems_[i].line_origin, stems_[i].line_direction);
-      ROS_INFO("6");
+      //ROS_INFO("6");
       findTopAndBottomPoints(stems_[i].line_cloud, stems_[i].top_point, stems_[i].bottom_point);
-      ROS_INFO("7");
+      //ROS_INFO("7");
     }
   }
 }

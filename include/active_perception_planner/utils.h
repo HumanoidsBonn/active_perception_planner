@@ -92,6 +92,31 @@ inline geometry_msgs::Vector3 fromEigen2GeometryMsgVector3(const Eigen::Vector3f
   return point_msg;
 }
 
+inline void computeBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& min_point, Eigen::Vector3f& max_point, Eigen::Vector3f& bounding_box_dimensions)
+{
+    // Compute the bounding box
+    //pcl::getMinMax3D(*cloud, min_point, max_point);
+
+    // Compute the dimensions of the bounding box
+    bounding_box_dimensions = max_point - min_point;
+}
+
+/**
+ * @brief dirVecToQuat computes quaternion closest to camQuat with x-axis aligned to dirVec
+ * @param dirVec desired x-axis direction
+ * @param camQuat camera orientation
+ * @param viewDir camera view direction (x-axis)
+ * @return computed quaternion
+ */
+tf2::Quaternion dirVecToQuat(const Eigen::Vector3d &dirVec, const tf2::Quaternion &camQuat, const tf2::Vector3 &viewDir)
+{
+  tf2::Vector3 dirVecTf = tf2::Vector3(dirVec.x(), dirVec.y(), dirVec.z());
+  tf2::Vector3 rotAx = viewDir.cross(dirVecTf);
+  double rotAng = viewDir.angle(dirVecTf);
+  tf2::Quaternion toRot(rotAx, rotAng);
+  tf2::Quaternion viewQuat = toRot * camQuat;
+  return viewQuat;
+}
 
 }
 

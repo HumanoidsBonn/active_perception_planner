@@ -40,6 +40,8 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
 
   pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
 
+  pub_crop_ = nhp_.advertise<oc2_interface_msgs::Crop>("crop", 1, true);
+
   std::string config_package;
   nhp_.param<std::string>("config_package", config_package, "active_perception_planner");
   config_package_path_ = ros::package::getPath(config_package);
@@ -189,8 +191,11 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
     //callEmptyService(client_start_depth_seg_d405_);
     callEmptyService(client_start_obj_det_d405_);
   }
-  active_perciever_->startFollowFruit(req.fruit_id);
-  res.success = true;
+  res.success = false;
+  if(active_perciever_->startFollowFruit(req.fruit_id))
+  {
+    res.success = true;
+  }
   return true;
 }
 
@@ -284,25 +289,39 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       fruit.header.frame_id = "trolley_local_link";
       fruit.fruit_id = it->second.fruit.fruit_id;
       fruit.fruit_pose = it->second.fruit.fruit_pose;
+      fruit.fruit_dimensions = it->second.fruit.fruit_size;
       fruit.score = it->second.fruit.observation_score;
       fruit.associated_stem_id = it->second.nearest_stem;
       fruit.has_peduncle = it->second.has_peduncle;
 
       if(it->second.fruit.observed_fruit_shape != nullptr)
-        pcl::toROSMsg(*(it->second.fruit.observed_fruit_shape), fruit.observed_fruit);
+      {
+        pcl::toROSMsg(*(it->second.fruit.observed_fruit_shape), fruit.observed_fruit);  
+        //pcl::toROSMsg(it->second.fruit.observed_fruit_shape->header, fruit.observed_fruit.header); 
+        fruit.observed_fruit.header.frame_id = it->second.fruit.observed_fruit_shape->header.frame_id;
+      }
 
       if(it->second.fruit.completed_fruit_shape != nullptr)
-        pcl::toROSMsg(*(it->second.fruit.completed_fruit_shape), fruit.predicted_fruit);
+      {
+        pcl::toROSMsg(*(it->second.fruit.completed_fruit_shape), fruit.predicted_fruit);  
+        fruit.predicted_fruit.header.frame_id = it->second.fruit.completed_fruit_shape->header.frame_id; 
+      }
 
       fruit.peduncle.associated_fruit_id = it->second.peduncle.associated_fruit_id;
       fruit.peduncle.peduncle_id  = it->second.peduncle.peduncle_id;
       fruit.peduncle.stempoint    = utils::fromEigen2GeometryMsgPoint(it->second.peduncle.stempoint);
       fruit.peduncle.fruitpoint   = utils::fromEigen2GeometryMsgPoint(it->second.peduncle.fruitpoint);
 
+      
       fruit.nearby_stems.insert(fruit.nearby_stems.begin(), it->second.nearby_stems.begin(), it->second.nearby_stems.end());
 
       if(it->second.peduncle.peduncle_cloud != nullptr)
-        pcl::toROSMsg(*(it->second.peduncle.peduncle_cloud), fruit.peduncle.cloud);      
+      {
+        pcl::toROSMsg(*(it->second.peduncle.peduncle_cloud), fruit.peduncle.cloud);     
+        fruit.peduncle.cloud.header.frame_id = it->second.peduncle.peduncle_cloud->header.frame_id;
+        //pcl::toROSMsg(it->second.peduncle.peduncle_cloud->header, fruit.peduncle.cloud.header); 
+      }
+      ROS_INFO_STREAM("ROS Msg Peduncle has "<< (fruit.peduncle.cloud.width*fruit.peduncle.cloud.height));
 
       res.crop.detected_fruits.push_back(fruit);
     }
@@ -321,6 +340,7 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       res.crop.stems.push_back(stem_msg);
     }
   }
+  pub_crop_.publish(res.crop);
   return res;
 }
 

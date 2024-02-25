@@ -12,3 +12,15 @@ void OnlineViewpointPlanner::setCrop(const Crop& crop, oc2_interface_msgs::Crop&
   crop_ = crop;
   crop_msg_ = crop_msg;
 }
+
+bool OnlineViewpointPlanner::retrieveInterestedFruit(const uint &desired_fruit_id)
+{
+  FruitWithPeduncleMapIterator it = crop_.fruit_with_peduncle_map.find(desired_fruit_id);
+  bool success = false;
+  if(it != fruit_map_.end())
+  {
+   interested_fruit_ = it->second;
+   return true;
+  }
+  return false;
+}

@@ -24,17 +24,18 @@ class OnlineViewpointPlanner
   private:
 
   ros::NodeHandle nhp_;
-  ros::ServiceClient tsdf_layer_client_;
   ros::Timer timer_fruit_follower_;
 
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
   std::shared_ptr<active_perception_planner::DawnIKController> ik_controller_;
+  std::shared_ptr<active_perception_planner::VoxbloxTsdfMap> voxblox_map_;
 
   Crop crop_;
   oc2_interface_msgs::Crop crop_msg_;
 
-  voxblox::Layer<voxblox::TsdfVoxel> *tsdf_map_layer_;
+  active_perception_planner::DetectedFruitWithPeduncle interested_fruit_;
 
+  
 
 
 
