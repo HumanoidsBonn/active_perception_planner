@@ -48,7 +48,7 @@ namespace active_perception_planner
     float pointLineDistance(const geometry_msgs::Point& fruit_centre, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction);
 
     Eigen::Vector3f findIntersection(const Eigen::Vector3f& outside_point, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction);
-
+    
 
   };
 }

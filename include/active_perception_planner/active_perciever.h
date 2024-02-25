@@ -236,7 +236,6 @@ protected:
   std::deque<DetectedFruitWithPeduncle> interested_fruit_detections_buffer_;
   DetectedFruitWithPeduncle curr_est_interested_fruit_, prev_est_interested_fruit_;
 
-  bool isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold = 0.01);
 
   bool updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud); // const geometry_msgs::Point& fruit_centre);
 
@@ -260,13 +259,21 @@ protected:
 
   std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl);
 
+  std::mutex mutex_;
+
   inline DetectedFruitWithPeduncle getCurrentEstimateOfTheInterestedFruit()
   {
-    return curr_est_interested_fruit_;
+    DetectedFruitWithPeduncle fruit_with_peduncle;
+    {
+      std::scoped_lock lk(mutex_);
+      fruit_with_peduncle = curr_est_interested_fruit_;
+    }
+    return fruit_with_peduncle;
   }
 
   inline void setCurrentEstimateOfTheInterestedFruit(const DetectedFruitWithPeduncle& fruit, bool fruit_est_initialised = true)
   {
+    std::scoped_lock lk(mutex_);
     if(fruit_est_initialised)
       prev_est_interested_fruit_ = curr_est_interested_fruit_;
     else
@@ -279,6 +286,8 @@ protected:
 
   //oc2_interface_msgs::DetectedFruitOld getasRosMsgType(const superellipsoid::DetectedFruit& fruit);
   oc2_interface_msgs::InterestedFruit getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit);
+
+  oc2_interface_msgs::DetectedFruit getInterestedFruitAsRosMsgType(const DetectedFruitWithPeduncle& fruit_with_peduncle);
 
 };
 

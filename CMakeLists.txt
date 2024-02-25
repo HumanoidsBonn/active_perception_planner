@@ -42,6 +42,8 @@ include_directories(${YAML_INCLUDE_DIRS})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
+find_package(PCL REQUIRED)
+
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -132,7 +134,7 @@ catkin_package(
   LIBRARIES active_perception_planner
   CATKIN_DEPENDS capsicum_superellipsoid_detector oc2_interface_msgs
   rospy roscpp dynamic_reconfigure
-#  DEPENDS system_lib
+  DEPENDS PCL
 )
 
 ###########
@@ -145,7 +147,11 @@ include_directories(
  include
  ${catkin_INCLUDE_DIRS}
  ${dawn_ik_include_dirs}
+ ${PCL_INCLUDE_DIRS}
 )
+
+link_directories(${PCL_LIBRARY_DIRS})
+add_definitions(${PCL_DEFINITIONS})
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
@@ -163,7 +169,10 @@ add_library(${PROJECT_NAME}
 target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
+  ${PCL_LIBRARIES}
+  pcl_surface
 )
+
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries

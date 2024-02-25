@@ -78,11 +78,11 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
   timer_fruit_estimator_  = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback, this);
 
-  sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
+  //sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
 
   pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("status", 1, true);
 
-  pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, true);
+  pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, false);
 
   listener_ = std::make_unique<tf::TransformListener>();
 
@@ -456,6 +456,7 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
     {
       setCurrentEstimateOfTheInterestedFruit(interested_fruit_);
       fruit_est_initialised_ = true;
+      online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(roi_detector_, se_detector_, interested_fruit_);
     }
     follow_fruit_enabled_ = true;
 
@@ -478,13 +479,15 @@ bool ActivePerciever::stopFollowFruit()
     timer_fruit_follower_.stop();
   if(timer_fruit_estimator_.hasStarted() == true)  
     timer_fruit_estimator_.stop();
-//  while(timer_fruit_follower_.hasStarted() == false)
-//  {
-//    sleep(0.5);
-//  }
+
   follow_fruit_enabled_ = false;
   interested_fruit_ = superellipsoid::DetectedFruit();
   fruit_est_initialised_ = false;
+  online_fruit_estimator_.reset();
+  if(ik_controller_->isIKControllerEnabled())
+  {
+    ik_controller_->stopDawnIK();
+  }
   return true;
 }
 
@@ -497,6 +500,8 @@ void ActivePerciever::publishStatusTimerCallback(const ros::TimerEvent&)
 
 void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 {
+  if(follow_fruit_enabled_ == false)
+    return;
   auto fruit_with_peduncle = getCurrentEstimateOfTheInterestedFruit();
   
   if(initial_motion_done_ == false)
@@ -554,12 +559,21 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 
 void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::TimerEvent& e)
 {
+  if(follow_fruit_enabled_ == false)
+    return;
 
+  online_fruit_estimator_->computeFruitEstimate();
+  if(online_fruit_estimator_->isNewEstimateAvailable())
+  {
+    auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+    setCurrentEstimateOfTheInterestedFruit(new_estimate);
+    pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+  }
 }
-bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)
-{
-  return isFruitCentreSimilar(prev_det.fruit.fruit_pose.position, potential_candidate.fruit.fruit_pose.position, center_threshold);
-}
+// bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)
+// {
+//   return isFruitCentreSimilar(prev_det.fruit.fruit_pose.position, potential_candidate.fruit.fruit_pose.position, center_threshold);
+// }
 
 std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters(pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl)
 {
@@ -586,30 +600,30 @@ std::vector<pcl::PointCloud<pcl::PointXYZRGB>::Ptr> ActivePerciever::getClusters
 
 bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud)
 {
-  // Convert to PCL Pointcloud
-  pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl (new pcl::PointCloud<pcl::PointXYZRGB>);
-  pcl::fromROSMsg(surface_cloud, *pc_pcl);
+  // // Convert to PCL Pointcloud
+  // pcl::PointCloud<pcl::PointXYZRGB>::Ptr pc_pcl (new pcl::PointCloud<pcl::PointXYZRGB>);
+  // pcl::fromROSMsg(surface_cloud, *pc_pcl);
 
-  auto clusters = getClusters(pc_pcl);
+  // auto clusters = getClusters(pc_pcl);
 
-  if(clusters.empty())
-    return false;
-  prev_est_interested_fruit_ = curr_est_interested_fruit_;
-  for(auto& cluster: clusters)
-  {
-    DetectedFruitWithPeduncle possible_same_fruit;
-    if(se_detector_->completeFruitShape(cluster, possible_same_fruit.fruit) == false)
-      continue;
+  // if(clusters.empty())
+  //   return false;
+  // prev_est_interested_fruit_ = curr_est_interested_fruit_;
+  // for(auto& cluster: clusters)
+  // {
+  //   DetectedFruitWithPeduncle possible_same_fruit;
+  //   if(se_detector_->completeFruitShape(cluster, possible_same_fruit.fruit) == false)
+  //     continue;
 
-    if(isDetectedFruitCurrentInterestedOne(prev_est_interested_fruit_, possible_same_fruit))
-    {
-      //interested_fruit_detections_buffer_.push_back(possible_same_fruit);
-      //interested_fruit_detections_buffer_.pop_back();
-      setCurrentEstimateOfTheInterestedFruit(possible_same_fruit);
-      return true;
-    }
-  }
-  ROS_ERROR("Could not detect fruit in the curr surface cloud");
+  //   if(isDetectedFruitCurrentInterestedOne(prev_est_interested_fruit_, possible_same_fruit))
+  //   {
+  //     //interested_fruit_detections_buffer_.push_back(possible_same_fruit);
+  //     //interested_fruit_detections_buffer_.pop_back();
+  //     setCurrentEstimateOfTheInterestedFruit(possible_same_fruit);
+  //     return true;
+  //   }
+  // }
+  // ROS_ERROR("Could not detect fruit in the curr surface cloud");
   return false;
 }
 
@@ -625,7 +639,7 @@ bool ActivePerciever::updateInterestedFruit(const sensor_msgs::PointCloud2 &surf
 //   return fruit_msg;
 // }
 
-oc2_interface_msgs::InterestedFruit ActivePerciever:: getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit)
+oc2_interface_msgs::InterestedFruit ActivePerciever::getInterestedFruitAsRosMsgType(const superellipsoid::DetectedFruit& fruit)
 {
   oc2_interface_msgs::InterestedFruit fruit_msg;
 
@@ -636,6 +650,38 @@ oc2_interface_msgs::InterestedFruit ActivePerciever:: getInterestedFruitAsRosMsg
   fruit_msg.header.frame_id = world_frame_;
   fruit_msg.header.stamp = ros::Time::now();
   return fruit_msg;
+}
+
+oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgType(const DetectedFruitWithPeduncle& fruit_with_peduncle)
+{
+  oc2_interface_msgs::DetectedFruit fruit;
+  fruit.header.frame_id = "trolley_local_link";
+  fruit.fruit_id = fruit_with_peduncle.fruit.fruit_id;
+  fruit.fruit_pose = fruit_with_peduncle.fruit.fruit_pose;
+  fruit.fruit_dimensions = fruit_with_peduncle.fruit.fruit_size;
+  fruit.score = fruit_with_peduncle.fruit.observation_score;
+  fruit.associated_stem_id = fruit_with_peduncle.nearest_stem;
+  fruit.has_peduncle = fruit_with_peduncle.has_peduncle;
+
+  if(fruit_with_peduncle.fruit.observed_fruit_shape != nullptr)
+  {
+    pcl::toROSMsg(*(fruit_with_peduncle.fruit.observed_fruit_shape), fruit.observed_fruit);  
+    //pcl::toROSMsg(fruit_with_peduncle.fruit.observed_fruit_shape->header, fruit.observed_fruit.header); 
+    fruit.observed_fruit.header.frame_id = fruit_with_peduncle.fruit.observed_fruit_shape->header.frame_id;
+  }
+
+  if(fruit_with_peduncle.fruit.completed_fruit_shape != nullptr)
+  {
+    pcl::toROSMsg(*(fruit_with_peduncle.fruit.completed_fruit_shape), fruit.predicted_fruit);  
+    fruit.predicted_fruit.header.frame_id = fruit_with_peduncle.fruit.completed_fruit_shape->header.frame_id; 
+  }
+
+  fruit.peduncle.associated_fruit_id = fruit_with_peduncle.peduncle.associated_fruit_id;
+  fruit.peduncle.peduncle_id  = fruit_with_peduncle.peduncle.peduncle_id;
+  fruit.peduncle.stempoint    = utils::fromEigen2GeometryMsgPoint(fruit_with_peduncle.peduncle.stempoint);
+  fruit.peduncle.fruitpoint   = utils::fromEigen2GeometryMsgPoint(fruit_with_peduncle.peduncle.fruitpoint);
+
+  return fruit;
 }
 
 void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2 &pc_msg)

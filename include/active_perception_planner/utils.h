@@ -4,6 +4,8 @@
 #include<Eigen/Core>
 #include <geometry_msgs/Point.h>
 #include <eigen_conversions/eigen_msg.h>
+#include <tf2_eigen/tf2_eigen.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 namespace utils{
 
@@ -45,6 +47,20 @@ inline bool isFruitCentreSimilar(const geometry_msgs::Point& p1, const geometry_
   tf::pointMsgToEigen(p2, c2);
 
   return isFruitCentreSimilar(c1, c2, threshold);
+}
+
+inline double computeFruitCentreDistance(const Eigen::Vector3d& c1, const Eigen::Vector3d& c2)
+{
+  return (c1 -c2).norm();
+}
+
+inline double computeFruitCentreDistance(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+{
+  Eigen::Vector3d c1, c2;
+  tf::pointMsgToEigen(p1, c1);
+  tf::pointMsgToEigen(p2, c2);
+
+  return computeFruitCentreDistance(c1, c2);
 }
 
 inline tf2::Quaternion computeQuaternionfromDirVec(const Eigen::Vector3d& dir_vec, const tf2::Vector3 &view_dir, const tf2::Quaternion& curr_cam_quat)
@@ -108,7 +124,7 @@ inline void computeBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clo
  * @param viewDir camera view direction (x-axis)
  * @return computed quaternion
  */
-tf2::Quaternion dirVecToQuat(const Eigen::Vector3d &dirVec, const tf2::Quaternion &camQuat, const tf2::Vector3 &viewDir)
+inline tf2::Quaternion dirVecToQuat(const Eigen::Vector3d &dirVec, const tf2::Quaternion &camQuat, const tf2::Vector3 &viewDir)
 {
   tf2::Vector3 dirVecTf = tf2::Vector3(dirVec.x(), dirVec.y(), dirVec.z());
   tf2::Vector3 rotAx = viewDir.cross(dirVecTf);
