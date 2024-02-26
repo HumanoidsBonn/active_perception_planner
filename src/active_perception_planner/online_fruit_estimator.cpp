@@ -11,9 +11,13 @@
 
 using namespace active_perception_planner;
 
-OnlineFruitEstimator::OnlineFruitEstimator(std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector, std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector, const DetectedFruitWithPeduncle& interested_fruit):roi_detector_(roi_detector), se_detector_(se_detector), orig_est_interested_fruit_(interested_fruit), prev_est_interested_fruit_(interested_fruit), curr_est_interested_fruit_(interested_fruit)
+OnlineFruitEstimator::OnlineFruitEstimator(ros::NodeHandle& nhp, std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector, std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector, const DetectedFruitWithPeduncle& interested_fruit):nhp_(nhp), roi_detector_(roi_detector), se_detector_(se_detector), orig_est_interested_fruit_(interested_fruit), prev_est_interested_fruit_(interested_fruit), curr_est_interested_fruit_(interested_fruit)
 {
   roi_detector_->enableContinuousDetections(true);
+
+  pub_peduncle_fruitpoint_  = nhp_.advertise<geometry_msgs::Point>("peduncle_fruitpoint", 1, false);
+  pub_peduncle_stempoint_   = nhp_.advertise<geometry_msgs::Point>("peduncle_stempoint", 1, false);
+  pub_fruit_top_            = nhp_.advertise<geometry_msgs::Point>("fruit_top_", 1, false);
 }
 
 void OnlineFruitEstimator::computeFruitEstimate()
@@ -64,9 +68,15 @@ void OnlineFruitEstimator::computeFruitEstimate()
       addPeduncleToPepper(nearest_fruit, associated_peduncle);
       setCurrentEstimateOfPeduncleDetection(associated_peduncle);
 
-      nearest_fruit.fruit.fruit_pose = filter(prev_est_interested_fruit_.fruit.fruit_pose, nearest_fruit.fruit.fruit_pose, 0.3);
+      nearest_fruit.fruit.fruit_pose = filter(prev_est_interested_fruit_.fruit.fruit_pose, nearest_fruit.fruit.fruit_pose, 0.1);
+      nearest_fruit.fruit.fruit_id = orig_est_interested_fruit_.fruit.fruit_id;
       setCurrentEstimateOfTheInterestedFruit(nearest_fruit);
+      publishDebug();
     }
+  }
+  else
+  {
+    ROS_ERROR_STREAM("++++++++++++ Cannot find the interested fruit in current detection");
   }
 }
 
@@ -87,8 +97,9 @@ int OnlineFruitEstimator::findPedunclebyAssociatedFruitID(const std::vector<poin
 
 void OnlineFruitEstimator::addPeduncleToPepper(DetectedFruitWithPeduncle& fruit_with_peduncle, const pointcloud_roi::SemanticInstanceDetection& peduncle)
 {
+  fruit_with_peduncle.has_peduncle = true;
   fruit_with_peduncle.peduncle.peduncle_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>());
-  fruit_with_peduncle.peduncle.peduncle_cloud = peduncle.cloud_segment;
+  *fruit_with_peduncle.peduncle.peduncle_cloud = *peduncle.cloud_segment;
   fruit_with_peduncle.peduncle.associated_fruit_id = fruit_with_peduncle.fruit.fruit_id;
   fruit_with_peduncle.peduncle.peduncle_id = peduncle.instance_id;
   fruit_with_peduncle.peduncle.is_estimation = false;
@@ -147,6 +158,26 @@ geometry_msgs::Pose OnlineFruitEstimator::filter(const geometry_msgs::Pose& prev
   filtered_pose.orientation.w = alpha * curr_pose.orientation.w + (1 - alpha) * prev_pose.orientation.w;
 
   return filtered_pose;
+}
+
+void OnlineFruitEstimator::publishDebug()
+{
+  geometry_msgs::Point peduncle_fruitpoint, peduncle_stempoint, fruit_top;
+
+  fruit_top = curr_est_interested_fruit_.fruit.fruit_pose.position;
+  fruit_top.z = fruit_top.z + curr_est_interested_fruit_.fruit.fruit_size.z;
+
+  pub_fruit_top_.publish(fruit_top);
+
+  auto eigen_fruitpoint = curr_est_interested_fruit_.peduncle.fruitpoint;
+  peduncle_fruitpoint = utils::fromEigen2GeometryMsgPoint(eigen_fruitpoint);
+  pub_peduncle_fruitpoint_.publish(peduncle_fruitpoint);
+
+  auto eigen_stempoint = curr_est_interested_fruit_.peduncle.stempoint;
+  peduncle_stempoint = utils::fromEigen2GeometryMsgPoint(eigen_fruitpoint);
+  pub_peduncle_stempoint_.publish(peduncle_stempoint);
+
+
 }
 
 // pcl::PointCloud<pcl::PointXYZRGB>::Ptr OnlineFruitEstimator::createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud)

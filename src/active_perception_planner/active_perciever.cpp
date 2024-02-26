@@ -26,12 +26,12 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::string>("planning_group_name", planning_group_name_, "head");
   nhp_.param<std::string>("base_frame", base_frame_, "trolley_local_link");
   nhp_.param<std::string>("tip_frame", tip_frame_, "camera_color_optical_frame");
-  nhp_.param<std::string>("surface_cloud_topic", surface_cloud_topic_, "/voxblox_node/surface_cloud");
+  nhp_.param<std::string>("zed2i_cloud", surface_cloud_topic_, "/zed2i/point_cloud/cloud_registered");
   nhp_.param<float>("obs_z_plane", obs_z_plane_, 1.0);
   nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
   nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
-  nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.0508, -0.731, 1.45});
+  nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.07, -0.73, 1.40});
 
   vp_origin_ = Eigen::Map<Eigen::Vector3d, Eigen::Unaligned>(fixed_view_position_.data(), fixed_view_position_.size());
   
@@ -74,11 +74,11 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
   get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("/gsm_node/get_scene_pointcloud");
 
-  timer_fruit_follower_   = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::followFruitCallback, this);
+  timer_fruit_follower_   = nh_.createTimer(ros::Duration(0.1), &ActivePerciever::followFruitCallback, this);
   timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
-  timer_fruit_estimator_  = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback, this);
+  timer_fruit_estimator_  = nh_.createTimer(ros::Duration(0.1), &ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback, this);
 
-  //sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
+  sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
 
   pub_status_advertiser_ = nhp_.advertise<std_msgs::Int8>("status", 1, true);
 
@@ -384,8 +384,10 @@ bool ActivePerciever::retrieveInterestedFruit(const uint &desired_fruit_id)
   if(it != crop_.fruit_with_peduncle_map.end())
   {
     interested_fruit_ = it->second;
+    ROS_INFO_STREAM("Found fruit with id: "<<desired_fruit_id);
     return true;
   }
+  ROS_ERROR_STREAM("Could NOT find fruit");
   return false;
 }
 
@@ -456,7 +458,7 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
     {
       setCurrentEstimateOfTheInterestedFruit(interested_fruit_);
       fruit_est_initialised_ = true;
-      online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(roi_detector_, se_detector_, interested_fruit_);
+      online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(nhp_, roi_detector_, se_detector_, interested_fruit_);
     }
     follow_fruit_enabled_ = true;
 
@@ -483,11 +485,12 @@ bool ActivePerciever::stopFollowFruit()
   follow_fruit_enabled_ = false;
   interested_fruit_ = superellipsoid::DetectedFruit();
   fruit_est_initialised_ = false;
-  online_fruit_estimator_.reset();
   if(ik_controller_->isIKControllerEnabled())
   {
     ik_controller_->stopDawnIK();
   }
+  sleep(0.5);
+  online_fruit_estimator_.reset();
   return true;
 }
 
@@ -515,6 +518,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
       compute_view_pose_success = computeInitialFixedViewPose(view_pose, fruit_with_peduncle.fruit.fruit_pose.position);
       if(compute_view_pose_success)
       {
+        //ROS_INFO_STREAM("")
         initial_motion_success = moveToPose(view_pose);
       }
       initial_motion_done_ = true;
@@ -656,12 +660,13 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
 {
   oc2_interface_msgs::DetectedFruit fruit;
   fruit.header.frame_id = "trolley_local_link";
+  fruit.header.stamp = ros::Time::now();
   fruit.fruit_id = fruit_with_peduncle.fruit.fruit_id;
   fruit.fruit_pose = fruit_with_peduncle.fruit.fruit_pose;
   fruit.fruit_dimensions = fruit_with_peduncle.fruit.fruit_size;
   fruit.score = fruit_with_peduncle.fruit.observation_score;
   fruit.associated_stem_id = fruit_with_peduncle.nearest_stem;
-  fruit.has_peduncle = fruit_with_peduncle.has_peduncle;
+  fruit.has_peduncle = true;
 
   if(fruit_with_peduncle.fruit.observed_fruit_shape != nullptr)
   {
@@ -686,12 +691,7 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
 
 void ActivePerciever::receiveSurfacePointCloudCallback(const sensor_msgs::PointCloud2 &pc_msg)
 {
-  if(follow_fruit_enabled_ == false)
-    return;
-
-  if(updateInterestedFruit(pc_msg) == false)
-    return;
-
+  return;
   //pub_interested_fruit_.publish(getasRosMsgType(getCurrentEstimateOfTheInterestedFruit()));
 }
 

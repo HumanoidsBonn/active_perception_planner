@@ -10,7 +10,7 @@ namespace active_perception_planner
 class OnlineFruitEstimator
 {
   public:
-  OnlineFruitEstimator(std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector, std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector, const DetectedFruitWithPeduncle& interested_fruit);
+  OnlineFruitEstimator(ros::NodeHandle& nhp, std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector, std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector, const DetectedFruitWithPeduncle& interested_fruit);
 
   inline bool isNewEstimateAvailable()
   {
@@ -32,6 +32,8 @@ class OnlineFruitEstimator
 
   private: 
 
+  ros::NodeHandle nhp_;
+
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
   
@@ -48,6 +50,9 @@ class OnlineFruitEstimator
   double new_fruit_gain_ = 0.2;
 
   std::mutex mutex_;
+
+  ros::Publisher pub_peduncle_fruitpoint_, pub_peduncle_stempoint_, pub_fruit_top_;
+
 
   private:
 
@@ -95,7 +100,9 @@ class OnlineFruitEstimator
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothPointCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud, double search_radius =0.03, int polynomial_order=2);
   //pcl::PointCloud<pcl::PointXYZRGB>::Ptr createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud);
 
-  geometry_msgs::Pose filter(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha);
+  geometry_msgs::Pose filter(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha= 0.1);
+
+  void publishDebug();
 
 
 };

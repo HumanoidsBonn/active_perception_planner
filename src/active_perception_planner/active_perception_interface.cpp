@@ -17,13 +17,15 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_detect_fruits_ = nhp_.advertiseService("detect_fruits", &ActivePercieverInterface::processDetectFruitsServiceCallback, this);
   srv_start_follow_fruits_ = nhp_.advertiseService("start_follow_fruit", &ActivePercieverInterface::processStartFollowFruitsServiceCallback, this);
   srv_stop_follow_fruits_  = nhp_.advertiseService("stop_follow_fruit", &ActivePercieverInterface::processStopFollowFruitsServiceCallback, this);
+  srv_start_follow_peduncle_  = nhp_.advertiseService("start_follow_peduncle", &ActivePercieverInterface::processStartFollowPeduncleServiceCallback, this);
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
 
-  client_start_depth_seg_ = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
-  client_stop_depth_seg_  = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
-  client_start_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
-  client_stop_obj_det_   = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
+  client_start_depth_seg_    = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
+  client_stop_depth_seg_     = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
+  client_start_obj_det_      = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
+  client_stop_obj_det_       = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
+  client_set_confidence_iou_ = nhp_.serviceClient<yolact_ros_msgs::SetConfidence>("/yolo_segmentation_ros_node/set_confidence_iou");
 
   if(disable_d405_processing_ == false)
   {
@@ -67,6 +69,15 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
 
 	const auto& goal = act_detection_server_->acceptNewGoal();
 
+  yolact_ros_msgs::SetConfidence srv_set_conf_iou;
+  srv_set_conf_iou.request.confidence_threshold = 0.8;
+  srv_set_conf_iou.request.confidence_threshold = 0.5;
+
+  if (!client_set_confidence_iou_.call(srv_set_conf_iou))
+  {
+    ROS_ERROR("Failed to call service");
+  }
+
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
   {
@@ -82,6 +93,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
     act_detection_server_->setAborted(detection_result_);
     return;
   }
+  sleep(1.0);
   if(disable_motion_ == false)
   {
     if(active_perciever_->performLocalMappingMotion() == false)
@@ -180,6 +192,22 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
   
   return true;
 
+}
+
+bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_interface_msgs::StartFollowPeduncle::Request &req, oc2_interface_msgs::StartFollowPeduncle::Response &res)
+{
+  //callEmptyService(client_start_depth_seg_);
+  yolact_ros_msgs::SetConfidence srv_set_conf_iou;
+  srv_set_conf_iou.request.confidence_threshold = 0.3;
+  srv_set_conf_iou.request.confidence_threshold = 0.3;
+
+  if (!client_set_confidence_iou_.call(srv_set_conf_iou))
+  {
+    ROS_ERROR("Failed to call service");
+  }
+
+  res.success = true;
+  return true;
 }
 
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)

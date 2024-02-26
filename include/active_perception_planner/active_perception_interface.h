@@ -14,6 +14,9 @@
 
 #include <actionlib/server/simple_action_server.h>
 #include <oc2_interface_msgs/DetectFruitsAction.h>
+#include <oc2_interface_msgs/StartFollowPeduncle.h>
+
+#include <yolact_ros_msgs/SetConfidence.h>
 
 namespace active_perception_planner
 {
@@ -28,6 +31,9 @@ public:
 
   bool processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request& req, oc2_interface_msgs::StartFollowFruit::Response& res);
 
+  bool processStartFollowPeduncleServiceCallback(oc2_interface_msgs::StartFollowPeduncle::Request &req, oc2_interface_msgs::StartFollowPeduncle::Response &res);
+
+
   bool processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request& req, oc2_interface_msgs::StopFollowFruit::Response& res);
 
   bool processSaveJointStatesCallback(oc2_interface_msgs::SaveJointState::Request& req, oc2_interface_msgs::SaveJointState::Response& res);
@@ -41,11 +47,13 @@ protected:
 
   ros::NodeHandle nh_, nhp_;
 
-  ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_stop_follow_fruits_, srv_save_js_;
+  ros::ServiceServer srv_detect_fruits_, srv_start_follow_fruits_, srv_start_follow_peduncle_, srv_stop_follow_fruits_, srv_save_js_;
 
   ros::ServiceClient client_start_depth_seg_, client_stop_depth_seg_, client_start_obj_det_, client_stop_obj_det_;
 
   ros::ServiceClient client_start_depth_seg_d405_, client_stop_depth_seg_d405_, client_start_obj_det_d405_, client_stop_obj_det_d405_;
+
+  ros::ServiceClient client_set_confidence_iou_;
 
   using DetectionAction = oc2_interface_msgs::DetectFruitsAction;
 	using DetectionServer = actionlib::SimpleActionServer<DetectionAction>;
