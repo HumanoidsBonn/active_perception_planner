@@ -25,6 +25,7 @@ struct Peduncle
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr peduncle_cloud;
   Eigen::Vector3f fruitpoint, stempoint;
   uint32_t associated_fruit_id;
+  geometry_msgs::Pose associated_fruit_pose;
 };
 
 struct DetectedFruitWithPeduncle

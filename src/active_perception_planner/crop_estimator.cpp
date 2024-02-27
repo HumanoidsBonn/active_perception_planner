@@ -137,6 +137,7 @@ std::unordered_map<uint32_t, DetectedFruitWithPeduncle> CropEstimator::attachDet
           fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_peduncle;
           fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = true;
           fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_id = fruit.fruit_id;
+          fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_pose = fruit.fruit_pose;
         }
         else
         {

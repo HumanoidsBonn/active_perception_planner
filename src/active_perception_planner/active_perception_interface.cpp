@@ -21,8 +21,8 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   srv_save_js_ = nhp_.advertiseService("save_joint_state", &ActivePercieverInterface::processSaveJointStatesCallback, this);
 
 
-  client_start_depth_seg_    = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/start");
-  client_stop_depth_seg_     = nhp_.serviceClient<std_srvs::Empty>("/depth_segmentation_node/stop");
+  client_start_depth_seg_    = nhp_.serviceClient<std_srvs::Empty>("/gsm_node/enable_gsm_srv");
+  client_stop_depth_seg_     = nhp_.serviceClient<std_srvs::Empty>("/gsm_node/disable_gsm_srv");
   client_start_obj_det_      = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
   client_stop_obj_det_       = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
   client_set_confidence_iou_ = nhp_.serviceClient<yolact_ros_msgs::SetConfidence>("/yolo_segmentation_ros_node/set_confidence_iou");
@@ -79,6 +79,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
   }
 
   callEmptyService(client_start_obj_det_);
+  callEmptyService(client_start_depth_seg_);
   if(disable_d405_processing_ == false)
   {
     //callEmptyService(client_start_depth_seg_d405_);
@@ -113,6 +114,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
   vpp_msgs::GetListInstancePointclouds instcloud_srv;
   ROS_WARN_STREAM("Starting Scene Generation with fruits");
   callEmptyService(client_stop_obj_det_);
+  callEmptyService(client_stop_depth_seg_);
   if(disable_d405_processing_ == false)
   {
     //callEmptyService(client_stop_depth_seg_d405_);
@@ -196,11 +198,11 @@ bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_
 
 bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_interface_msgs::StartFollowPeduncle::Request &req, oc2_interface_msgs::StartFollowPeduncle::Response &res)
 {
-  //callEmptyService(client_start_depth_seg_);
+  callEmptyService(client_stop_depth_seg_);
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
-
+  
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
     ROS_ERROR("Failed to call service");

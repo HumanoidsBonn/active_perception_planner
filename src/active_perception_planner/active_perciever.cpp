@@ -452,6 +452,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
+  online_fruit_estimator_.reset();
   if(retrieveInterestedFruit(fruit_id))
   {
     if(fruit_est_initialised_ == false)
@@ -490,7 +491,6 @@ bool ActivePerciever::stopFollowFruit()
     ik_controller_->stopDawnIK();
   }
   sleep(0.5);
-  online_fruit_estimator_.reset();
   return true;
 }
 

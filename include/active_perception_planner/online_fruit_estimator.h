@@ -43,9 +43,15 @@ class OnlineFruitEstimator
   pointcloud_roi::SemanticInstanceDetection curr_pepper_det_, prev_pepper_det_;
   pointcloud_roi::SemanticInstanceDetection curr_peduncle_det_, prev_peduncle_det_;
 
+  Peduncle best_peduncle_;
+  bool is_peduncle_available_ = false;
+
   bool is_pepper_det_init_ = false;
   bool is_peduncle_det_init_ = false;
   bool is_new_estimate_available_ = false;
+
+  int num_pepper_detections_missed_ = 0;
+  int num_peduncle_detections_missed_ = 0;
 
   double new_fruit_gain_ = 0.2;
 
@@ -74,6 +80,7 @@ class OnlineFruitEstimator
       prev_pepper_det_ = curr_pepper_det_;
     
     curr_pepper_det_ = pepper_det;
+    num_pepper_detections_missed_ = 0;
   }
 
   inline void setCurrentEstimateOfPeduncleDetection(const pointcloud_roi::SemanticInstanceDetection& peduncle_det)
@@ -87,6 +94,7 @@ class OnlineFruitEstimator
       prev_peduncle_det_ = curr_peduncle_det_;
     
     curr_peduncle_det_ = peduncle_det;
+    num_peduncle_detections_missed_ = 0;
   }
 
   bool isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold = 0.01);
@@ -95,12 +103,30 @@ class OnlineFruitEstimator
   
   void addPeduncleToPepper(DetectedFruitWithPeduncle& fruit, const pointcloud_roi::SemanticInstanceDetection& peduncle);
 
+  void addPeduncleToPepper(DetectedFruitWithPeduncle& fruit, const Peduncle& peduncle);
+
+  bool IsNewPeduncleGoodEnough(const Peduncle& pnew, const Peduncle& pold, double min_points = 50);
+
+  inline void setBestPeduncle(const Peduncle& ped)
+  {
+    best_peduncle_ = ped;
+    is_peduncle_available_ = true;
+  }
+
+  void transformPedunclePointCloud(pcl::PointCloud<pcl::PointXYZRGB>::Ptr peduncle_cloud,
+                                 const geometry_msgs::Point& p_new,
+                                 const geometry_msgs::Point& p_old);
+
   void calculatePeduncleEndpoints(Peduncle& peduncle);
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothPointCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud, double search_radius =0.03, int polynomial_order=2);
   //pcl::PointCloud<pcl::PointXYZRGB>::Ptr createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud);
 
   geometry_msgs::Pose filter(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha= 0.1);
+
+  Eigen::Vector3f filter(const Eigen::Vector3f&& prev_point, const Eigen::Vector3f& curr_point, double alpha= 0.1);
+
+  Peduncle convert(pointcloud_roi::SemanticInstanceDetection& ped_det);
 
   void publishDebug();
 
