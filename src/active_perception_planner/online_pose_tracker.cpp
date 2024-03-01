@@ -241,12 +241,12 @@ oc2_interface_msgs::ControllerStatus OnlinePoseTracker::getOTGStatus()
 
 bool OnlinePoseTracker::isOTGRunning()
 {
-  return otg_status_.status == 0;
+  return otg_status_.status != 3 || otg_status_.status != oc2_interface_msgs::ControllerStatus::WAITING;
 }
 
-bool OnlinePoseTracker::isOTGTargetReached()
+bool OnlinePoseTracker::isOTGReadyForNewTarget()
 {
-  return otg_status_.reached;
+  return (otg_status_.status == oc2_interface_msgs::ControllerStatus::WAITING);
 }
 
 void OnlinePoseTracker::registerOTGStatusCallback(const oc2_interface_msgs::ControllerStatus& msg)

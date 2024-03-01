@@ -148,6 +148,50 @@ inline geometry_msgs::Quaternion dirVecToQuat(Eigen::Vector3d &dirVec, const tf2
   return tf2::toMsg (camera_quat_eigen);
 }
 
+inline bool arePosesApproximatelyEqual(const geometry_msgs::Pose& pose1, const geometry_msgs::Pose& pose2, double position_tolerance = 0.02, double orientation_tolerance = 0.1) {
+    // Check position
+    double dx = pose1.position.x - pose2.position.x;
+    double dy = pose1.position.y - pose2.position.y;
+    double dz = pose1.position.z - pose2.position.z;
+    double position_distance = sqrt(dx * dx + dy * dy + dz * dz);
+
+    // Check orientation
+    double dot_product = pose1.orientation.x * pose2.orientation.x +
+                         pose1.orientation.y * pose2.orientation.y +
+                         pose1.orientation.z * pose2.orientation.z +
+                         pose1.orientation.w * pose2.orientation.w;
+    double orientation_distance = 1 - fabs(dot_product);
+
+    // Check if both position and orientation are within tolerances
+    return position_distance <= position_tolerance && orientation_distance <= orientation_tolerance;
+}
+inline void convert(const geometry_msgs::Transform& trans, geometry_msgs::Pose& pose)
+{
+  pose.orientation = trans.rotation;
+  pose.position.x = trans.translation.x;
+  pose.position.y = trans.translation.y;
+  pose.position.z = trans.translation.z;
+}
+
+inline void convert(const geometry_msgs::Pose& pose, geometry_msgs::Transform& trans)
+{
+  trans.rotation = pose.orientation;
+  trans.translation.x = pose.position.x;
+  trans.translation.y = pose.position.y;
+  trans.translation.z = pose.position.z;
+}
+
+inline void convert(const geometry_msgs::TransformStamped& trans, geometry_msgs::PoseStamped& pose)
+{
+  convert(trans.transform, pose.pose);
+  pose.header = trans.header;
+}
+
+inline void convert(const geometry_msgs::PoseStamped& pose, geometry_msgs::TransformStamped& trans)
+{
+  convert(pose.pose, trans.transform);
+  trans.header = pose.header;
+}
 }
 
 #endif // UTILS_H

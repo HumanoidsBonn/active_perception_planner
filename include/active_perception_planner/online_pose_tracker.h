@@ -84,7 +84,7 @@ class OnlinePoseTracker
 
   bool isOTGRunning();
 
-  bool isOTGTargetReached();
+  bool isOTGReadyForNewTarget();
 
   void stopOTGMotion();
 

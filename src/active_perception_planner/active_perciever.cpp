@@ -528,30 +528,31 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
     bool initial_motion_success = false;
     bool compute_view_pose_success = false;
     geometry_msgs::PoseStamped view_pose_stamped;
-    if(pose_tracker_->isOTGTargetReached() == false)
+    if(pose_tracker_->isOTGModeReady() == false)
     {
-      ROS_WARN_THROTTLE(1.0, "Current OTG Target not reached");
+      ROS_ERROR_STREAM_THROTTLE(1.0, "OTG Mode not ready"<<pose_tracker_->getOTGStatus());
+      return;
+    }
+    if(pose_tracker_->isOTGReadyForNewTarget()== false)
+    {
+      ROS_ERROR_STREAM_THROTTLE(2.0, "Current OTG Target not reached"<<pose_tracker_->getOTGStatus());
       return;
     }
     compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, fruit_with_peduncle.fruit.fruit_pose.position);
-    if(compute_view_pose_success)
+    if(compute_view_pose_success == false)
     {
-      ROS_INFO_STREAM_THROTTLE(2.0, "View Pose: "<<view_pose_stamped);
-      if(pose_tracker_->isOTGModeReady())
-      {
-        pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
-        initial_motion_done_ = true;
-      }
-      else
-      {
-        ROS_ERROR_STREAM_THROTTLE(2.0, "OTG Mode not ready"<<pose_tracker_->getOTGStatus());
-      }
+      ROS_WARN_STREAM_THROTTLE(2.0, "Error computing viewpose");
+      return;
     }
-    else
+    if(utils::arePosesApproximatelyEqual(curr_view_pose_.pose, view_pose_stamped.pose))
     {
-      ROS_ERROR_STREAM_THROTTLE(2.0, "Compute VIEW POSE FAILURE");
+      ROS_INFO_STREAM_THROTTLE(2.0, "New pose is approx equal to old pose. Hence not sending");
+      return;
     }
-  
+    pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
+    initial_motion_done_ = true;
+    curr_view_pose_ = view_pose_stamped;
+
   }
   //     else
   //     {
@@ -766,6 +767,8 @@ bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& vi
   {
     return false;
   }
+  if(initial_motion_done_ == false)
+    utils::convert(camera_tf, curr_view_pose_);
   
   tf2::Quaternion cam_quat;
   tf2::fromMsg(camera_tf.transform.rotation, cam_quat);

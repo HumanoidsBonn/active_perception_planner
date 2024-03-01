@@ -197,7 +197,7 @@ protected:
   bool initial_motion_done_ = false;
   std::vector<double> fixed_view_position_; 
   Eigen::Vector3d vp_origin_;
-
+  geometry_msgs::PoseStamped curr_view_pose_;
   std::vector<Eigen::Vector3d> view_positions_;
   uint64_t pose_iter_ = 0; 
   

@@ -55,6 +55,16 @@ void OnlineFruitEstimator::computeFruitEstimate()
   for(int i = 0; i < detections->peppers.size(); ++i)
   {
     auto fruit_det = detections->peppers[i];
+    if(fruit_det.cloud_segment == nullptr)
+    {
+      ROS_WARN_THROTTLE(2.0, "Online Fruit Estimator: Fruit cloud segment nullptr");
+      continue;
+    }
+    if(fruit_det.cloud_segment->size() < 10)
+    {
+      ROS_WARN_THROTTLE(2.0, "Online Fruit Estimator: Fruit cloud segment too small");
+      continue;
+    }
     DetectedFruitWithPeduncle fruit_with_peduncle;
     auto surface_cloud = smoothPointCloud(fruit_det.cloud_segment);
     if(se_detector_->completeFruitShape(surface_cloud, fruit_with_peduncle.fruit))
