@@ -31,10 +31,24 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<std::vector<std::string>>("pose_list", mapping_poses_list_, {"init_pose",  "obs_pose_202", "obs_pose_303", "obs_pose_404"});
   nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
-  nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.07, -0.73, 1.40});
+  nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.7, 0.3, 0.84});
 
   vp_origin_ = Eigen::Map<Eigen::Vector3d, Eigen::Unaligned>(fixed_view_position_.data(), fixed_view_position_.size());
-  
+  view_positions_.push_back(vp_origin_);
+  Eigen::Vector3d view_left = vp_origin_;
+  view_left.x() = vp_origin_.x() - 0.05;
+  Eigen::Vector3d view_right = vp_origin_;
+  view_right.x() = vp_origin_.x() + 0.05;
+  Eigen::Vector3d view_front = vp_origin_;
+  view_front.y() = vp_origin_.y() + 0.05;
+
+  Eigen::Vector3d view_top = vp_origin_;
+  view_top.z() = vp_origin_.z() + 0.05;
+
+  view_positions_.push_back(view_left);
+  view_positions_.push_back(view_front);
+  view_positions_.push_back(view_top);
+  view_positions_.push_back(view_right);
 
   mapping_motion_type_ = "PTP";
   if(disable_motion_ == false)
@@ -68,7 +82,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   peduncle_estimator_ = std::make_shared<active_perception_planner::PeduncleEstimator>();
   stem_estimator_     = std::make_shared<active_perception_planner::StemEstimator>();
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
-  ik_controller_ = std::make_shared<active_perception_planner::DawnIKController>(nhp_);
+  pose_tracker_ = std::make_shared<active_perception_planner::OnlinePoseTracker>(nhp_);
   
   reset_map_client_ = nh_.serviceClient<std_srvs::Empty>("/gsm_node/reset_map");
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
@@ -87,6 +101,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   listener_ = std::make_unique<tf::TransformListener>();
 
   timer_status_publisher_.start();
+  pose_tracker_->switchXarmToTraj();
   ROS_INFO("ActivePerciever");
 }
 
@@ -97,6 +112,7 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 
 bool ActivePerciever::clearSceneMap()
 {
+  pose_tracker_->switchXarmToTraj();
   std_srvs::Empty empty_srv;
   if(fruit_map_available_)
   {
@@ -159,14 +175,14 @@ void ActivePerciever::processDetectionsAtSensorPose()
   while(detections == nullptr && (ros::Time::now()-t_start).toSec() < 1.0);
   if(detections != nullptr)
   {
-    ROS_WARN_STREAM("Tracked Detections available");
+    //ROS_WARN_STREAM("Tracked Detections available");
     //auto detections = roi_detector_->readSemanticInstanceDetections();
     peduncle_estimator_->semanticInstanceDetectionsCallback(detections);
     stem_estimator_->semanticInstanceDetectionsCallback(detections);
   }
   else
   {
-    ROS_WARN_STREAM("Tracked Detections NOT available");
+    //ROS_WARN_STREAM("Tracked Detections NOT available");
   }
 }
 
@@ -461,6 +477,7 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
       fruit_est_initialised_ = true;
       online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(nhp_, roi_detector_, se_detector_, interested_fruit_);
     }
+    pose_tracker_->switchXarmToOTG();
     follow_fruit_enabled_ = true;
 
     if(fruit_est_initialised_ && timer_fruit_follower_.hasStarted() == false)
@@ -486,11 +503,9 @@ bool ActivePerciever::stopFollowFruit()
   follow_fruit_enabled_ = false;
   interested_fruit_ = superellipsoid::DetectedFruit();
   fruit_est_initialised_ = false;
-  if(ik_controller_->isIKControllerEnabled())
-  {
-    ik_controller_->stopDawnIK();
-  }
-  sleep(0.5);
+  pose_tracker_->stopOTGMotion();
+  sleep(0.1);
+  pose_tracker_->switchXarmToTraj();
   return true;
 }
 
@@ -506,57 +521,76 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   if(follow_fruit_enabled_ == false)
     return;
   auto fruit_with_peduncle = getCurrentEstimateOfTheInterestedFruit();
-  
-  if(initial_motion_done_ == false)
+  ROS_INFO_THROTTLE(2.0, "after getCurrentEstimateOfTheInterestedFruit");
+  if(use_fixed_pose_)
   {
-    ik_controller_->stopDawnIK();
-    if(use_fixed_pose_)
+    ROS_INFO_THROTTLE(2.0, "Entered use_fixed_pose");
+    bool initial_motion_success = false;
+    bool compute_view_pose_success = false;
+    geometry_msgs::PoseStamped view_pose_stamped;
+    if(pose_tracker_->isOTGTargetReached() == false)
     {
-      bool initial_motion_success = false;
-      bool compute_view_pose_success = false;
-      geometry_msgs::Pose view_pose;
-      compute_view_pose_success = computeInitialFixedViewPose(view_pose, fruit_with_peduncle.fruit.fruit_pose.position);
-      if(compute_view_pose_success)
+      ROS_WARN_THROTTLE(1.0, "Current OTG Target not reached");
+      return;
+    }
+    compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, fruit_with_peduncle.fruit.fruit_pose.position);
+    if(compute_view_pose_success)
+    {
+      ROS_INFO_STREAM_THROTTLE(2.0, "View Pose: "<<view_pose_stamped);
+      if(pose_tracker_->isOTGModeReady())
       {
-        //ROS_INFO_STREAM("")
-        initial_motion_success = moveToPose(view_pose);
-      }
-      initial_motion_done_ = true;
-      if(initial_motion_success == false)
-      {
-        ROS_ERROR_STREAM("Cannot move to initial pose using motion planning. Using Lookat Pose directly");
-        if(ik_controller_->startDawnIK())
-        {
-          if(compute_view_pose_success)
-          {
-            if(ik_controller_->fullPoseTarget(view_pose))
-              return;
-          }
-        }
+        pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
+        initial_motion_done_ = true;
       }
       else
       {
-        ROS_INFO_STREAM("Success! Moved to Initial Fixed View Pose using moveit");
-        return; 
+        ROS_ERROR_STREAM_THROTTLE(2.0, "OTG Mode not ready"<<pose_tracker_->getOTGStatus());
       }
-    }
-  }
-  else
-  {
-    if(use_fixed_pose_)
-    {
-      if(!ik_controller_->isIKControllerEnabled())
-        ik_controller_->startDawnIK();
-
-      Eigen::Vector3d fruit_target_eigen;
-      tf2::fromMsg(fruit_with_peduncle.fruit.fruit_pose.position, fruit_target_eigen);
-      ik_controller_->lookAtTarget(vp_origin_, fruit_target_eigen); 
     }
     else
     {
-
+      ROS_ERROR_STREAM_THROTTLE(2.0, "Compute VIEW POSE FAILURE");
     }
+  
   }
+  //     else
+  //     {
+  //       ROS_ERROR_STREAM("+++++++++++++++++++++++++++++++++++++++Cannot compute initial fixed viewpose");
+  //     }
+  //     initial_motion_done_ = true;
+  //     if(initial_motion_success == false)
+  //     {
+  //       ROS_ERROR_STREAM("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Cannot move to initial pose using motion planning. Using Lookat Pose directly");
+  //       if(compute_view_pose_success)
+  //       {
+  //         if(ik_controller_->switchController("head_pos_joint_group_pos_controller", "head_controller"))
+  //           if(ik_controller_->setTrackerTargetPose(view_pose))
+  //             return;
+  //       }
+  //     }
+  //     else
+  //     {
+  //       ROS_INFO_STREAM("*************************************Success! Moved to Initial Fixed View Pose using moveit");
+  //       return; 
+  //     }
+  //   }
+  // }
+  // else
+  // {
+  //   if(use_fixed_pose_)
+  //   {
+  //     if(!ik_controller_->isIKControllerEnabled())
+  //       ik_controller_->startDawnIK();
+
+  //     Eigen::Vector3d fruit_target_eigen;
+  //     tf2::fromMsg(fruit_with_peduncle.fruit.fruit_pose.position, fruit_target_eigen);
+  //     ik_controller_->lookAtTarget(vp_origin_, fruit_target_eigen); 
+  //   }
+  //   else
+  //   {
+
+  //   }
+  // }
   // auto fruit= getasRosMsgType(interested_fruit_);
   // pub_interested_fruit_.publish(fruit);
 }
@@ -666,7 +700,7 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
   fruit.fruit_dimensions = fruit_with_peduncle.fruit.fruit_size;
   fruit.score = fruit_with_peduncle.fruit.observation_score;
   fruit.associated_stem_id = fruit_with_peduncle.nearest_stem;
-  fruit.has_peduncle = true;
+  
 
   if(fruit_with_peduncle.fruit.observed_fruit_shape != nullptr)
   {
@@ -680,7 +714,13 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
     pcl::toROSMsg(*(fruit_with_peduncle.fruit.completed_fruit_shape), fruit.predicted_fruit);  
     fruit.predicted_fruit.header.frame_id = fruit_with_peduncle.fruit.completed_fruit_shape->header.frame_id; 
   }
-
+  
+  if(fruit_with_peduncle.peduncle.peduncle_cloud != nullptr)
+  {
+    pcl::toROSMsg(*(fruit_with_peduncle.peduncle.peduncle_cloud), fruit.peduncle.cloud);  
+    fruit.peduncle.cloud.header.frame_id = fruit.observed_fruit.header.frame_id;
+  }
+  fruit.has_peduncle = fruit_with_peduncle.has_peduncle;
   fruit.peduncle.associated_fruit_id = fruit_with_peduncle.peduncle.associated_fruit_id;
   fruit.peduncle.peduncle_id  = fruit_with_peduncle.peduncle.peduncle_id;
   fruit.peduncle.stempoint    = utils::fromEigen2GeometryMsgPoint(fruit_with_peduncle.peduncle.stempoint);
@@ -717,20 +757,29 @@ bool ActivePerciever::getPose(geometry_msgs::TransformStamped& transform, const 
   return true;
 }
 
-bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::Pose& view_pose, const geometry_msgs::Point& fruit_target)
+bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target)
 {
+  ROS_INFO_THROTTLE(1.0, "Computing new pose");
   geometry_msgs::TransformStamped camera_tf;
-  if(getPose(camera_tf, "zed2i_camera_left_optical_frame", "world")== false)
+  std::string ref_frame_id = "trolley_local_link";
+  if(getPose(camera_tf, "zed2i_camera_center", ref_frame_id)== false)
   {
     return false;
   }
+  
   tf2::Quaternion cam_quat;
   tf2::fromMsg(camera_tf.transform.rotation, cam_quat);
 
   Eigen::Vector3d fruit_target_eigen;
   tf2::fromMsg(fruit_target, fruit_target_eigen);
 
-  view_pose = computeViewPose(fruit_target_eigen, vp_origin_, cam_quat);
+  int idx = pose_iter_ % 5;
+  auto vp_origin = view_positions_[idx];
+
+  pose_iter_++;
+  view_pose.pose = computeViewPose(fruit_target_eigen, vp_origin, cam_quat);
+  view_pose.header.frame_id = ref_frame_id;
+  ROS_INFO_THROTTLE(1.0, "New Posed Computed");
   return true;
 }
 
@@ -738,13 +787,13 @@ geometry_msgs::Pose ActivePerciever::computeViewPose(const Eigen::Vector3d& frui
 {
   Eigen::Vector3d dir_vec = (fruit_target - vp_origin).normalized();
   const tf2::Matrix3x3 cam_mat(cam_quat);
-  tf2::Vector3 view_dir(cam_mat.getColumn(2));
-
-  auto view_quat = utils::dirVecToQuat(dir_vec, cam_quat,view_dir);
+  tf2::Vector3 view_dir(cam_mat.getColumn(0));
+  
   geometry_msgs::Pose view_pose;
 
+  view_pose.orientation = utils::dirVecToQuat(dir_vec, cam_quat,view_dir);
   tf::pointEigenToMsg(vp_origin, view_pose.position);
-  view_pose.orientation = tf2::toMsg(view_quat);
+  //view_pose.orientation = tf2::toMsg(view_quat);
 
   return view_pose;
 }

@@ -70,7 +70,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
 	const auto& goal = act_detection_server_->acceptNewGoal();
 
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.8;
+  srv_set_conf_iou.request.confidence_threshold = 0.7;
   srv_set_conf_iou.request.confidence_threshold = 0.5;
 
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
@@ -352,7 +352,7 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
         //pcl::toROSMsg(it->second.peduncle.peduncle_cloud->header, fruit.peduncle.cloud.header); 
       }
       ROS_INFO_STREAM("ROS Msg Peduncle has "<< (fruit.peduncle.cloud.width*fruit.peduncle.cloud.height));
-
+      ROS_WARN_STREAM("FRUIT ID: "<<fruit.fruit_id);
       res.crop.detected_fruits.push_back(fruit);
     }
     int stem_idx = 0; 

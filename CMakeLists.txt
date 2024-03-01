@@ -34,6 +34,9 @@ find_package(catkin REQUIRED
   pcl_ros
   pointcloud_roi_msgs
   pointcloud_roi
+  moveit_servo
+  controller_manager_msgs
+  xarm_msgs
 )
 
 
@@ -159,7 +162,7 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/stem_estimator.cpp
   src/${PROJECT_NAME}/peduncle_estimator.cpp
   src/${PROJECT_NAME}/crop_estimator.cpp
-  src/${PROJECT_NAME}/dawn_ik_controller.cpp
+  src/${PROJECT_NAME}/online_pose_tracker.cpp
   src/${PROJECT_NAME}/online_fruit_estimator.cpp
   src/${PROJECT_NAME}/voxblox_tsdf_map.cpp
   src/${PROJECT_NAME}/voxblox_esdf_map.cpp

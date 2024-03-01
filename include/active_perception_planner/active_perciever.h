@@ -33,7 +33,7 @@
 #include "active_perception_planner/crop_estimator.h"
 #include "active_perception_planner/online_fruit_estimator.h"
 
-#include "active_perception_planner/dawn_ik_controller.h"
+#include "active_perception_planner/online_pose_tracker.h"
 #include "active_perception_planner/voxblox_tsdf_map.h"
 
 
@@ -136,7 +136,7 @@ protected:
   // std::shared_ptr<voxblox::Block<voxblox::TsdfVoxel>> block_;
   // voxblox::TsdfVoxel voxel_;
 
-  std::shared_ptr<active_perception_planner::DawnIKController> ik_controller_;
+  std::shared_ptr<active_perception_planner::OnlinePoseTracker> pose_tracker_;
 
 
   std::string planning_group_name_;
@@ -197,10 +197,13 @@ protected:
   bool initial_motion_done_ = false;
   std::vector<double> fixed_view_position_; 
   Eigen::Vector3d vp_origin_;
+
+  std::vector<Eigen::Vector3d> view_positions_;
+  uint64_t pose_iter_ = 0; 
   
   bool moveToPose(const geometry_msgs::Pose&);
   geometry_msgs::Pose computeViewPose(const Eigen::Vector3d& fruit_target, const Eigen::Vector3d& vp_origin, const tf2::Quaternion& cam_quat);
-  bool computeInitialFixedViewPose(geometry_msgs::Pose& view_pose, const geometry_msgs::Point& fruit_target);
+  bool computeInitialFixedViewPose(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target);
   bool getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame = "world");
 
   //sensor_msgs::JointState

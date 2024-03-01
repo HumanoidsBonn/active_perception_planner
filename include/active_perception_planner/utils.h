@@ -124,14 +124,28 @@ inline void computeBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& clo
  * @param viewDir camera view direction (x-axis)
  * @return computed quaternion
  */
-inline tf2::Quaternion dirVecToQuat(const Eigen::Vector3d &dirVec, const tf2::Quaternion &camQuat, const tf2::Vector3 &viewDir)
+inline geometry_msgs::Quaternion dirVecToQuat(Eigen::Vector3d &dirVec, const tf2::Quaternion &camQuat, const tf2::Vector3 &viewDir)
 {
-  tf2::Vector3 dirVecTf = tf2::Vector3(dirVec.x(), dirVec.y(), dirVec.z());
-  tf2::Vector3 rotAx = viewDir.cross(dirVecTf);
-  double rotAng = viewDir.angle(dirVecTf);
-  tf2::Quaternion toRot(rotAx, rotAng);
-  tf2::Quaternion viewQuat = toRot * camQuat;
-  return viewQuat;
+  dirVec.normalize();    
+  Eigen::Vector3d camera_z = Eigen::Vector3d::UnitZ();
+  if(dirVec.y() != 0.0)
+  {
+    camera_z.y() = -dirVec.z()/dirVec.y();
+  }
+
+  camera_z.normalize();
+
+  Eigen::Vector3d camera_y = camera_z.cross(dirVec);
+
+  Eigen::Matrix3d camera_rot;
+
+  camera_rot.col(0) = dirVec;
+  camera_rot.col(1) = camera_y;
+  camera_rot.col(2) = camera_z;
+
+  Eigen::Quaterniond camera_quat_eigen(camera_rot);
+
+  return tf2::toMsg (camera_quat_eigen);
 }
 
 }

@@ -40,6 +40,9 @@
   <depend>pointcloud_roi</depend>
   <depend>pcl_ros</depend>
   <depend>dawn_ik</depend>
+  <depend>moveit_servo</depend>
+  <depend>controller_manager_msgs</depend>
+  <depend>xarm_msgs</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

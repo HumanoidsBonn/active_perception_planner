@@ -43,6 +43,9 @@ Crop CropEstimator::createCrop(const FruitMap& fruit_map, const std::unordered_m
 
 std::unordered_map<uint32_t, Peduncle> CropEstimator::mergeSamePeduncles(const std::unordered_map<uint32_t, Peduncle>& peduncle_map)
 {
+  if(peduncle_map.size() < 1)
+    return peduncle_map;
+  
   std::unordered_map<uint32_t, Peduncle> new_peduncle_map;
   std::unordered_set<int> assigned_peduncles;
   uint32_t peduncle_id = 1;
@@ -112,47 +115,59 @@ std::unordered_map<uint32_t, DetectedFruitWithPeduncle> CropEstimator::attachDet
 {
   std::unordered_map<uint32_t, DetectedFruitWithPeduncle> fruit_with_peduncle_map;
   std::unordered_set<int> assigned_peduncles;
-
-  for(auto itf = fruit_map.begin(); itf != fruit_map.end(); ++itf)
+  if(peduncle_map.size() < 1)
   {
-    auto fruit = itf->second;
-    bool found_peduncle_fruit_association = false;
-    for(auto itp = peduncle_map.begin(); itp != peduncle_map.end(); ++itp)
+    for(auto itf = fruit_map.begin(); itf != fruit_map.end(); ++itf)
     {
-      auto peduncle = itp->second;
-      if(assigned_peduncles.count(peduncle.peduncle_id) > 0 || found_peduncle_fruit_association)
-      {
-        ROS_INFO("Skipping peduncle as already assigned");
-        continue;
-      }
-      calculatePeduncleEndpoints(peduncle);
-      bool attached = isPeduncleAtTopCenterOfFruit(fruit, peduncle, 0.02);
-      if(attached)
-      {
-        if(found_peduncle_fruit_association == false)
-        {
-          found_peduncle_fruit_association = true;
-          assigned_peduncles.insert(peduncle.peduncle_id);
-          DetectedFruitWithPeduncle fruit_with_peduncle(fruit, peduncle);
-          fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_peduncle;
-          fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = true;
-          fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_id = fruit.fruit_id;
-          fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_pose = fruit.fruit_pose;
-        }
-        else
-        {
-          ROS_INFO("Another peduncle part found for fruit which has peduncle");
-          assigned_peduncles.insert(peduncle.peduncle_id);
-          *(fruit_with_peduncle_map[fruit.fruit_id].peduncle.peduncle_cloud) += *(peduncle.peduncle_cloud);
-          calculatePeduncleEndpoints(fruit_with_peduncle_map[fruit.fruit_id].peduncle);
-        }
-      }
-    }
-    if(found_peduncle_fruit_association == false)
-    {
+      auto fruit = itf->second;
       DetectedFruitWithPeduncle fruit_with_dummy_peduncle(fruit);
       fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_dummy_peduncle;
       fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = false;
+    }
+  }
+  else
+  {
+    for(auto itf = fruit_map.begin(); itf != fruit_map.end(); ++itf)
+    {
+      auto fruit = itf->second;
+      bool found_peduncle_fruit_association = false;
+      for(auto itp = peduncle_map.begin(); itp != peduncle_map.end(); ++itp)
+      {
+        auto peduncle = itp->second;
+        if(assigned_peduncles.count(peduncle.peduncle_id) > 0 || found_peduncle_fruit_association)
+        {
+          ROS_INFO("Skipping peduncle as already assigned");
+          continue;
+        }
+        calculatePeduncleEndpoints(peduncle);
+        bool attached = isPeduncleAtTopCenterOfFruit(fruit, peduncle, 0.02);
+        if(attached)
+        {
+          if(found_peduncle_fruit_association == false)
+          {
+            found_peduncle_fruit_association = true;
+            assigned_peduncles.insert(peduncle.peduncle_id);
+            DetectedFruitWithPeduncle fruit_with_peduncle(fruit, peduncle);
+            fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_peduncle;
+            fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = true;
+            fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_id = fruit.fruit_id;
+            fruit_with_peduncle_map[fruit.fruit_id].peduncle.associated_fruit_pose = fruit.fruit_pose;
+          }
+          else
+          {
+            ROS_INFO("Another peduncle part found for fruit which has peduncle");
+            assigned_peduncles.insert(peduncle.peduncle_id);
+            *(fruit_with_peduncle_map[fruit.fruit_id].peduncle.peduncle_cloud) += *(peduncle.peduncle_cloud);
+            calculatePeduncleEndpoints(fruit_with_peduncle_map[fruit.fruit_id].peduncle);
+          }
+        }
+      }
+      if(found_peduncle_fruit_association == false)
+      {
+        DetectedFruitWithPeduncle fruit_with_dummy_peduncle(fruit);
+        fruit_with_peduncle_map[fruit.fruit_id] = fruit_with_dummy_peduncle;
+        fruit_with_peduncle_map[fruit.fruit_id].has_peduncle = false;
+      }
     }
   }
   assert(fruit_with_peduncle_map.size() == fruit_map.size());
