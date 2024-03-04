@@ -60,6 +60,12 @@ std::unordered_map<uint32_t, Peduncle> CropEstimator::mergeSamePeduncles(const s
     new_peduncle_map[peduncle_id].peduncle_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
     for(auto it_inner = std::next(it_outer); it_inner != peduncle_map.end(); ++it_inner) 
     { 
+      if(it_inner->second.peduncle_cloud->empty())
+      {
+        ROS_WARN_STREAM_THROTTLE(2.0, "Peduncle cloud empty. Hence skipping...");
+        continue;
+      }
+      
       pcl::KdTreeFLANN<pcl::PointXYZRGB> kdtree;
       kdtree.setInputCloud(it_inner->second.peduncle_cloud);
       // Threshold distance for overlap check

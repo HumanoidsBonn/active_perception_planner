@@ -217,6 +217,11 @@ void OnlineFruitEstimator::calculatePeduncleEndpoints(Peduncle& peduncle)
 
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr OnlineFruitEstimator::smoothPointCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud, double search_radius, int polynomial_order) 
 {
+  if(input_cloud->empty())
+  {
+    ROS_WARN_THROTTLE(2.0, "Pepper Online Cloud empty. Hence not smoothing");
+    return input_cloud;
+  }
   // Set up a search method
   pcl::search::KdTree<pcl::PointXYZRGB>::Ptr tree(new pcl::search::KdTree<pcl::PointXYZRGB>);
   tree->setInputCloud(input_cloud);

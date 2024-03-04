@@ -11,7 +11,7 @@ namespace utils{
 
 //https://stackoverflow.com/questions/7168484/3d-line-segment-and-plane-intersection
 
-inline bool calcRayPlaneIntersection(Eigen::Vector3d& intersection_point, const Eigen::Vector3d& ray_origin, const Eigen::Vector3d& ray_dir, const Eigen::Vector3d& plane_normal, const Eigen::Vector3d& plane_point)
+inline bool calcRayPlaneIntersection(Eigen::Vector3d& intersection_point, const Eigen::Vector3d& ray_origin, const Eigen::Vector3d& ray_dir, const Eigen::Vector3d& plane_normal, const Eigen::Vector3d& plane_point, double min_distance = 0.30)
 {
   if(ray_dir.dot(plane_normal) < 0.001f)
     return false;
@@ -21,7 +21,7 @@ inline bool calcRayPlaneIntersection(Eigen::Vector3d& intersection_point, const 
   double x = (d - plane_normal.dot(ray_origin))/(plane_normal.dot(ray_dir));
 
   intersection_point = ray_origin + x * ray_dir;
-
+  
   return true;
 }
 
@@ -30,6 +30,23 @@ inline bool calcLinePlaneIntersection(Eigen::Vector3d& intersection_point, const
   Eigen::Vector3d ray_dir = (ray_point - ray_origin);
   ray_dir = ray_dir/ray_dir.norm();
   return calcRayPlaneIntersection(intersection_point, ray_origin, ray_dir, plane_normal, plane_point);
+}
+
+inline bool computeSimilarity(double& cosine_distance, double& euclidean_distance, const Eigen::Vector3d& ideal_ray_origin, const Eigen::Vector3d& target, const Eigen::Vector3d& candidate_vp, double min_distance = 0.25)
+{
+  Eigen::Vector3d candidate_ray_dir = (candidate_vp - target);
+  euclidean_distance = candidate_ray_dir.norm();
+  if(euclidean_distance < min_distance)
+    return false;
+  
+  candidate_ray_dir.normalize();
+  Eigen::Vector3d ideal_ray_dir = (target - ideal_ray_origin).normalized();
+  cosine_distance = candidate_ray_dir.dot(ideal_ray_dir);
+  if(cosine_distance < 0)
+    return false;
+    
+  return true;
+
 }
 
 inline bool isFruitCentreSimilar(const Eigen::Vector3d& c1, const Eigen::Vector3d& c2, double threshold = 0.01)

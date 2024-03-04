@@ -180,6 +180,10 @@ protected:
 
   geometry_msgs::TransformStamped came_frame_tf_;
 
+  Eigen::Vector3d head_base_link_origin_;
+  Eigen::Vector3d arm_left_base_link_origin_;
+  Eigen::Vector3d arm_right_base_link_origin_;
+
   tf2::Quaternion cam_quat_;
   tf2::Vector3 view_dir_;
 
@@ -205,6 +209,9 @@ protected:
   geometry_msgs::Pose computeViewPose(const Eigen::Vector3d& fruit_target, const Eigen::Vector3d& vp_origin, const tf2::Quaternion& cam_quat);
   bool computeInitialFixedViewPose(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target);
   bool getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame = "world");
+
+  bool computeViewpointOriginForZPlane(geometry_msgs::Point& vp_origin, const geometry_msgs::Point& fruit_centre, const geometry_msgs::Vector3& fruit_dim, const geometry_msgs::Point& obs_target, double z_plane = 0.95, double min_distance=0.30);
+  bool computeViewPoseForZPlane(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target, const geometry_msgs::Point& vp_origin);
 
   //sensor_msgs::JointState
 
