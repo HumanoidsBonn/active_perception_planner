@@ -230,7 +230,7 @@ protected:
 
   Eigen::Vector3d fruit_grasping_position_; 
 
-
+  bool start_peduncle_following_ = false;
 
   bool moveToNextMappingPose(const std::string &next_pose);
 

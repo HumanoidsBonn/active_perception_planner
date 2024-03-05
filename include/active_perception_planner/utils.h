@@ -7,7 +7,11 @@
 #include <tf2_eigen/tf2_eigen.h>
 #include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
+typedef Eigen::Matrix<double, 6, 1> Vector6d;
+
+
 namespace utils{
+
 
 //https://stackoverflow.com/questions/7168484/3d-line-segment-and-plane-intersection
 
@@ -136,6 +140,26 @@ inline geometry_msgs::Vector3 fromEigen2GeometryMsgVector3(const Eigen::Vector3f
   return point_msg;
 }
 
+inline Eigen::Vector3d fromGeometryMsg2EigenVector3d(const geometry_msgs::Point msg)
+{
+  Eigen::Vector3d eig;
+  eig.x() = msg.x;
+  eig.y() = msg.y;
+  eig.z() = msg.z;
+
+  return eig;
+}
+
+inline Eigen::Vector3d fromGeometryMsg2EigenVector3d(const geometry_msgs::Vector3 msg)
+{
+  Eigen::Vector3d eig;
+  eig.x() = msg.x;
+  eig.y() = msg.y;
+  eig.z() = msg.z;
+
+  return eig;
+}
+
 inline void computeBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& min_point, Eigen::Vector3f& max_point, Eigen::Vector3f& bounding_box_dimensions)
 {
     // Compute the bounding box
@@ -220,6 +244,34 @@ inline void convert(const geometry_msgs::PoseStamped& pose, geometry_msgs::Trans
   convert(pose.pose, trans.transform);
   trans.header = pose.header;
 }
+
+inline Vector6d computeWeightedAverageUsingVariance(const Eigen::Vector3d& m1, const Eigen::Vector3d& m2, const Eigen::Vector3d& s1, const Eigen::Vector3d& s2)
+{
+  Eigen::Vector3d p1;
+  p1.x() = 1/s1.x();
+  p1.y() = 1/s1.y();
+  p1.z() = 1/s2.z();
+
+  Eigen::Vector3d p2;
+  p2.x() = 1/s2.x();
+  p2.y() = 1/s2.y();
+  p2.z() = 1/s2.z();
+
+  Vector6d m_s_weighted;
+
+  m_s_weighted(0) = (p1.x()*m1.x() + p2.x()*m2.x())/(p1.x() + p2.x());
+  m_s_weighted(1) = (p1.y()*m1.y() + p2.y()*m2.y())/(p1.y() + p2.y());
+  m_s_weighted(2) = (p1.z()*m1.z() + p2.z()*m2.z())/(p1.z() + p2.z());
+
+  m_s_weighted(3) = s1.x() + s2.x();
+  m_s_weighted(4) = s1.y() + s2.y();
+  m_s_weighted(5) = s1.z() + s2.z();
+
+  return m_s_weighted; 
+
+
+}
+
 }
 
 #endif // UTILS_H

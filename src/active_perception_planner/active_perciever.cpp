@@ -502,6 +502,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 
 bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 {
+  start_peduncle_following_ = true;
   geometry_msgs::TransformStamped ee_tf;
   std::string ref_frame_id = "trolley_local_link";
   if(getPose(ee_tf, "arm_right_eef_link", ref_frame_id))
@@ -518,6 +519,7 @@ bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
   fruit_est_initialised_ = false;
+  start_peduncle_following_ = false;
   online_fruit_estimator_.reset();
   if(retrieveInterestedFruit(fruit_id))
   {
@@ -628,7 +630,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   if(compute_view_pose_success && perform_motion)
   {
     ROS_INFO_STREAM_THROTTLE(2.0, "VARIABLE POSE: Send to OTG");
-    pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
+    //pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
     initial_motion_done_ = true;
     curr_view_pose_ = view_pose_stamped;
   }
@@ -683,12 +685,26 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
   if(pose_tracker_->isOTGRunning() == false)
   {
     ROS_INFO_STREAM_THROTTLE(1.0, "OTG not running. Hence compute fruit estimate");
-    online_fruit_estimator_->computeFruitEstimate();
+    bool is_new_estimate_available = false;
+    if(start_peduncle_following_ == false)
+    {
+      online_fruit_estimator_->computeFruitEstimate();
+    }
+    else
+    {
+      online_fruit_estimator_->computePeduncleEstimate();
+    }
     if(online_fruit_estimator_->isNewEstimateAvailable())
     {
       auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+      if(new_estimate.has_peduncle == false)
+        ROS_WARN_STREAM_THROTTLE(2.0, "New Fruit Estimate BUT NO PEDUNCLE");
       setCurrentEstimateOfTheInterestedFruit(new_estimate);
       pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+    }
+    else
+    {
+      ROS_ERROR_STREAM_THROTTLE(2.0, "No new estimate");
     }
   }
   else
@@ -795,6 +811,7 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
     pcl::toROSMsg(*(fruit_with_peduncle.fruit.observed_fruit_shape), fruit.observed_fruit);  
     //pcl::toROSMsg(fruit_with_peduncle.fruit.observed_fruit_shape->header, fruit.observed_fruit.header); 
     fruit.observed_fruit.header.frame_id = fruit_with_peduncle.fruit.observed_fruit_shape->header.frame_id;
+    fruit.observed_fruit.header.frame_id = "trolley_local_link";
     pub_int_obs_cloud_.publish(fruit.observed_fruit);
   }
 
@@ -802,6 +819,7 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
   {
     pcl::toROSMsg(*(fruit_with_peduncle.fruit.completed_fruit_shape), fruit.predicted_fruit);  
     fruit.predicted_fruit.header.frame_id = fruit_with_peduncle.fruit.completed_fruit_shape->header.frame_id; 
+    fruit.predicted_fruit.header.frame_id = "trolley_local_link";
     pub_int_pred_cloud_.publish(fruit.predicted_fruit);
   }
   
@@ -809,7 +827,8 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
   {
     pcl::toROSMsg(*(fruit_with_peduncle.peduncle.peduncle_cloud), fruit.peduncle.cloud);  
     fruit.peduncle.cloud.header.frame_id = fruit.observed_fruit.header.frame_id;
-    pub_int_peduncle_cloud_.publish(fruit.peduncle);
+    fruit.peduncle.cloud.header.frame_id = "trolley_local_link";
+    pub_int_peduncle_cloud_.publish(fruit.peduncle.cloud);
   }
   fruit.has_peduncle = fruit_with_peduncle.has_peduncle;
   fruit.peduncle.associated_fruit_id = fruit_with_peduncle.peduncle.associated_fruit_id;

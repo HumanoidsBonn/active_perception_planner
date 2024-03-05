@@ -40,7 +40,9 @@ struct DetectedFruitWithPeduncle
   {}
 
   DetectedFruitWithPeduncle(superellipsoid::DetectedFruit _fruit,  Peduncle _peduncle):fruit(_fruit), peduncle(_peduncle)
-  {}
+  {
+    has_peduncle = true;
+  }
 
   DetectedFruitWithPeduncle(superellipsoid::DetectedFruit _fruit):fruit(_fruit)
   {}

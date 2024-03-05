@@ -4,9 +4,90 @@
 #include "active_perception_planner/common.h"
 #include "pointcloud_roi/detected_roi_filter.h"
 #include<capsicum_superellipsoid_detector/se_detector.h>
+#include "active_perception_planner/utils.h"
 
+#include <pcl/point_types.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/surface/mls.h>
+#include <pcl/surface/poisson.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
+
+#include <algorithm>
 namespace active_perception_planner
 {
+
+template<typename PointT>
+class PointCloudBuffer {
+private:
+  std::deque<std::pair<typename pcl::PointCloud<PointT>::Ptr, ros::Time>> buffer;
+  int buffer_size; // Maximum number of frames in buffer
+  double max_age;  // Maximum age of a frame in seconds
+
+public:
+  PointCloudBuffer(int buffer_size, double max_age) : buffer_size(buffer_size), max_age(max_age) {}
+
+  void addFrame(const typename pcl::PointCloud<PointT>::Ptr& frame, const ros::Time& timestamp) {
+      // Check if the frame is empty or null
+      if (frame->empty() || frame == nullptr) {
+          ROS_WARN_THROTTLE(2, "Empty or null point cloud frame, skipping.");
+          return;
+      }
+
+      // Check if the frame is too old
+      ros::Time current_time = ros::Time::now();
+      if ((current_time - timestamp).toSec() > max_age) {
+          ROS_WARN_THROTTLE(2, "Frame too old, skipping.");
+          return;
+      }
+
+      // Add frame to buffer
+      if (buffer.size() < buffer_size) {
+          buffer.push_front(std::make_pair(frame, timestamp));
+      } else {
+          ROS_WARN_THROTTLE(2, "Buffer full, dropping oldest frame.");
+          buffer.pop_back(); // Remove oldest frame
+          buffer.push_front(std::make_pair(frame, timestamp));
+      }
+  }
+
+  typename pcl::PointCloud<PointT>::Ptr getMergedSmoothedFrame() 
+  {
+    // Check if all frames in the buffer are too old
+    bool all_frames_old = true;
+    for (auto it = buffer.rbegin(); it != buffer.rend(); ++it) 
+    {
+      if ((ros::Time::now() - it->second).toSec() <= max_age) 
+      {
+        all_frames_old = false;
+        break; // No need to check frames more in the front
+      }
+    }
+    // Check if all frames in the buffer are too old
+    if (all_frames_old) 
+    {
+      ROS_WARN_THROTTLE(2, "All frames in buffer are too old, returning nullptr.");
+      return nullptr;
+    }
+    // Merge all valid frames in the buffer
+    typename pcl::PointCloud<PointT>::Ptr merged_cloud(new pcl::PointCloud<PointT>);
+    for (const auto& frame : buffer) 
+    {
+      *merged_cloud += *frame.first;
+    }
+    // Smooth merged cloud with MLS filter
+    pcl::MovingLeastSquares<PointT, PointT> mls;
+    mls.setInputCloud(merged_cloud);
+    typename pcl::PointCloud<PointT>::Ptr smoothed_cloud(new pcl::PointCloud<PointT>);
+    mls.process(*smoothed_cloud);
+
+    return smoothed_cloud;
+  }
+};
+
 class OnlineFruitEstimator
 {
   public:
@@ -26,9 +107,9 @@ class OnlineFruitEstimator
     return fruit_with_peduncle;
   }
 
-  void computeFruitEstimate();
+  bool computeFruitEstimate();
   
-  void computePeduncleEstimate();
+  bool computePeduncleEstimate();
 
   inline void setFruitGraspingPosition(const Eigen::Vector3d& pos)
   {
@@ -54,12 +135,15 @@ class OnlineFruitEstimator
   pointcloud_roi::SemanticInstanceDetection curr_pepper_det_, prev_pepper_det_;
   pointcloud_roi::SemanticInstanceDetection curr_peduncle_det_, prev_peduncle_det_;
 
+  std::unique_ptr<PointCloudBuffer<pcl::PointXYZRGB>> peduncle_buffer_;
+
   Peduncle best_peduncle_;
   bool is_peduncle_available_ = false;
 
   bool is_pepper_det_init_ = false;
   bool is_peduncle_det_init_ = false;
   bool is_new_estimate_available_ = false;
+  bool is_new_peduncle_estimate_available_ = true;
 
   int num_pepper_detections_missed_ = 0;
   int num_peduncle_detections_missed_ = 0;
@@ -146,6 +230,8 @@ class OnlineFruitEstimator
 
   Eigen::Vector3f filter(const Eigen::Vector3f&& prev_point, const Eigen::Vector3f& curr_point, double alpha= 0.1);
 
+  Vector6d filterUsingVariances(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, const Eigen::Vector3d& prev_var, const Eigen::Vector3d& curr_var);
+
   geometry_msgs::Pose updateAccordingToGripperPosition(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha = 0.1) ;
 
 
@@ -161,6 +247,7 @@ class OnlineFruitEstimator
 
   void publishDebug();
 
+  bool isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle);
 
 };
 
