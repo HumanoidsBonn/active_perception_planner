@@ -127,6 +127,11 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
 
   pub_interested_fruit_ = nhp_.advertise<oc2_interface_msgs::DetectedFruit>("interested_fruit", 1, false);
 
+  pub_int_obs_cloud_ = nhp_.advertise<sensor_msgs::PointCloud2>("interested/obs_cloud", 1, false);
+  pub_int_pred_cloud_ = nhp_.advertise<sensor_msgs::PointCloud2>("interested/pred_cloud", 1, false);
+  pub_int_peduncle_cloud_ = nhp_.advertise<sensor_msgs::PointCloud2>("interested/peduncle_cloud", 1, false);
+
+
   listener_ = std::make_unique<tf::TransformListener>();
 
   timer_status_publisher_.start();
@@ -790,18 +795,21 @@ oc2_interface_msgs::DetectedFruit ActivePerciever::getInterestedFruitAsRosMsgTyp
     pcl::toROSMsg(*(fruit_with_peduncle.fruit.observed_fruit_shape), fruit.observed_fruit);  
     //pcl::toROSMsg(fruit_with_peduncle.fruit.observed_fruit_shape->header, fruit.observed_fruit.header); 
     fruit.observed_fruit.header.frame_id = fruit_with_peduncle.fruit.observed_fruit_shape->header.frame_id;
+    pub_int_obs_cloud_.publish(fruit.observed_fruit);
   }
 
   if(fruit_with_peduncle.fruit.completed_fruit_shape != nullptr)
   {
     pcl::toROSMsg(*(fruit_with_peduncle.fruit.completed_fruit_shape), fruit.predicted_fruit);  
     fruit.predicted_fruit.header.frame_id = fruit_with_peduncle.fruit.completed_fruit_shape->header.frame_id; 
+    pub_int_pred_cloud_.publish(fruit.predicted_fruit);
   }
   
   if(fruit_with_peduncle.peduncle.peduncle_cloud != nullptr)
   {
     pcl::toROSMsg(*(fruit_with_peduncle.peduncle.peduncle_cloud), fruit.peduncle.cloud);  
     fruit.peduncle.cloud.header.frame_id = fruit.observed_fruit.header.frame_id;
+    pub_int_peduncle_cloud_.publish(fruit.peduncle);
   }
   fruit.has_peduncle = fruit_with_peduncle.has_peduncle;
   fruit.peduncle.associated_fruit_id = fruit_with_peduncle.peduncle.associated_fruit_id;

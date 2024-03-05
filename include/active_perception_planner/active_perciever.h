@@ -307,6 +307,8 @@ protected:
 
   oc2_interface_msgs::DetectedFruit getInterestedFruitAsRosMsgType(const DetectedFruitWithPeduncle& fruit_with_peduncle);
 
+  ros::Publisher pub_int_obs_cloud_, pub_int_pred_cloud_, pub_int_peduncle_cloud_;
+
 };
 
 } // namespace active_perception_planner
