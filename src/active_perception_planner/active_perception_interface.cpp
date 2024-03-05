@@ -200,7 +200,7 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
 {
   callEmptyService(client_stop_depth_seg_);
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.3;
+  srv_set_conf_iou.request.confidence_threshold = 0.5;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
   
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))

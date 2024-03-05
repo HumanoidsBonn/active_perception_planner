@@ -6,10 +6,10 @@ add_compile_options(-std=c++17)
 
 set(CMAKE_BUILD_TYPE "Release")
 
-include(GNUInstallDirs)
-list(APPEND CMAKE_MODULE_PATH "/usr/local/lib/cmake/OpenVDB")
-find_package(OpenVDB REQUIRED)
-find_package(VDBFusion REQUIRED)
+# include(GNUInstallDirs)
+# list(APPEND CMAKE_MODULE_PATH "/usr/local/lib/cmake/OpenVDB")
+# find_package(OpenVDB REQUIRED)
+# find_package(VDBFusion REQUIRED)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
@@ -45,7 +45,7 @@ include_directories(${YAML_INCLUDE_DIRS})
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 
-find_package(PCL REQUIRED)
+find_package(PCL REQUIRED common io surface features search filters)
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -173,7 +173,6 @@ target_link_libraries(${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
   ${PCL_LIBRARIES}
-  pcl_surface
 )
 
 
@@ -201,6 +200,9 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 target_link_libraries(${PROJECT_NAME}_node
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
+  ${PCL_LIBRARIES}
+
 )
 
 #############

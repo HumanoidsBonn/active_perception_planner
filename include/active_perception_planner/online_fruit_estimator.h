@@ -30,9 +30,20 @@ class OnlineFruitEstimator
   
   void computePeduncleEstimate();
 
+  inline void setFruitGraspingPosition(const Eigen::Vector3d& pos)
+  {
+    use_ee_pos_ = true;
+    fruit_grasping_position_ = pos;
+    fruit_at_grasp_ = curr_est_interested_fruit_;
+    prev_ee_pos_ = pos;
+  }
+
   private: 
 
   ros::NodeHandle nhp_;
+
+  tf2_ros::Buffer tf_buffer_;
+  tf2_ros::TransformListener tf_listener_;
 
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
@@ -57,8 +68,17 @@ class OnlineFruitEstimator
 
   std::mutex mutex_;
 
+  Eigen::Vector3d fruit_grasping_position_; 
+  Eigen::Vector3d prev_ee_pos_;
+  bool use_ee_pos_= false;
+  DetectedFruitWithPeduncle fruit_at_grasp_;
+
+  bool ee_pos_update_available_ = false;
+
   ros::Publisher pub_peduncle_fruitpoint_, pub_peduncle_stempoint_, pub_fruit_top_;
 
+  int fruit_id_of_confident_detection_ = -1;
+  bool confident_id_available_ = false;
 
   private:
 
@@ -120,13 +140,24 @@ class OnlineFruitEstimator
   void calculatePeduncleEndpoints(Peduncle& peduncle);
 
   pcl::PointCloud<pcl::PointXYZRGB>::Ptr smoothPointCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud, double search_radius =0.03, int polynomial_order=2);
-  //pcl::PointCloud<pcl::PointXYZRGB>::Ptr createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud);
 
   geometry_msgs::Pose filter(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha= 0.1);
 
   Eigen::Vector3f filter(const Eigen::Vector3f&& prev_point, const Eigen::Vector3f& curr_point, double alpha= 0.1);
 
+  geometry_msgs::Pose updateAccordingToGripperPosition(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha = 0.1) ;
+
+
   Peduncle convert(pointcloud_roi::SemanticInstanceDetection& ped_det);
+
+  bool getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame);
+
+  template <typename PointT>
+  pcl::PointCloud<pcl::Normal>::Ptr estimateNormals(const typename pcl::PointCloud<PointT>::Ptr& pcl_cloud, float search_radius);
+
+  template <typename PointT>
+  typename pcl::PointCloud<PointT>::Ptr filterCloud(const typename pcl::PointCloud<PointT>::Ptr& pcl_cloud, DetectedFruitWithPeduncle& fruit);
 
   void publishDebug();
 

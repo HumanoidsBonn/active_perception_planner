@@ -272,6 +272,7 @@ float computeDistanceHausdorff(Cloud &cloud_a, Cloud &cloud_b)
   return dist;
 }
 
+
 }
 
 #endif // ACTIVE_PERCEPTION_PLANNER_UTILS_POINTCLOUD_DISTANCES_H

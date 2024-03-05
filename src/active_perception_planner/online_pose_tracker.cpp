@@ -241,7 +241,7 @@ oc2_interface_msgs::ControllerStatus OnlinePoseTracker::getOTGStatus()
 
 bool OnlinePoseTracker::isOTGRunning()
 {
-  return otg_status_.status != 3 || otg_status_.status != oc2_interface_msgs::ControllerStatus::WAITING;
+  return otg_status_.status == oc2_interface_msgs::ControllerStatus::RUNNING || otg_status_.status == oc2_interface_msgs::ControllerStatus::PROXIMITY;
 }
 
 bool OnlinePoseTracker::isOTGReadyForNewTarget()

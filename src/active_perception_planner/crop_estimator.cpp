@@ -265,13 +265,13 @@ bool CropEstimator:: isPeduncleAtTopCenterOfFruit(superellipsoid::DetectedFruit&
   float fruitpoint_dist = fruitpoint_gap.norm();
   float stempoint_dist  = stempoint_gap.norm();
 
-  if(fruitpoint_dist < 0.04)
+  if(fruitpoint_dist < 0.07)
   {
     ROS_INFO("Peduncle attached to fruit at fruitpoint");
     peduncle.associated_fruit_id = fruit.fruit_id;
     return true;
   }
-  else if(stempoint_dist < 0.04)
+  else if(stempoint_dist < 0.07)
   {
     ROS_INFO("Peduncle attached to fruit at original stempoint. Swapping them...");
     peduncle.associated_fruit_id = fruit.fruit_id;

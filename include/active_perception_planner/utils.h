@@ -32,7 +32,7 @@ inline bool calcLinePlaneIntersection(Eigen::Vector3d& intersection_point, const
   return calcRayPlaneIntersection(intersection_point, ray_origin, ray_dir, plane_normal, plane_point);
 }
 
-inline bool computeSimilarity(double& cosine_distance, double& euclidean_distance, const Eigen::Vector3d& ideal_ray_origin, const Eigen::Vector3d& target, const Eigen::Vector3d& candidate_vp, double min_distance = 0.25)
+inline bool computeSimilarity(double& similarity_score, double& cosine_distance, double& euclidean_distance, const Eigen::Vector3d& ideal_ray_origin, const Eigen::Vector3d& target, const Eigen::Vector3d& candidate_vp, double min_distance = 0.2)
 {
   Eigen::Vector3d candidate_ray_dir = (candidate_vp - target);
   euclidean_distance = candidate_ray_dir.norm();
@@ -44,6 +44,8 @@ inline bool computeSimilarity(double& cosine_distance, double& euclidean_distanc
   cosine_distance = candidate_ray_dir.dot(ideal_ray_dir);
   if(cosine_distance < 0)
     return false;
+
+  similarity_score = 0.5*cosine_distance + (0.5 * min_distance/euclidean_distance);
     
   return true;
 
@@ -78,6 +80,15 @@ inline double computeFruitCentreDistance(const geometry_msgs::Point& p1, const g
   tf::pointMsgToEigen(p2, c2);
 
   return computeFruitCentreDistance(c1, c2);
+}
+
+inline Eigen::Vector3d computeErrorInCentres(const geometry_msgs::Point& p1, const geometry_msgs::Point& p2)
+{
+  Eigen::Vector3d c1, c2;
+  tf::pointMsgToEigen(p1, c1);
+  tf::pointMsgToEigen(p2, c2);
+
+  return c1-c2;
 }
 
 inline tf2::Quaternion computeQuaternionfromDirVec(const Eigen::Vector3d& dir_vec, const tf2::Vector3 &view_dir, const tf2::Quaternion& curr_cam_quat)

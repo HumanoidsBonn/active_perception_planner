@@ -32,6 +32,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
   nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.7, 0.3, 0.84});
+  nhp_.param<bool>("use_fixed_pose", use_fixed_pose_, true);
 
   vp_origin_ = Eigen::Map<Eigen::Vector3d, Eigen::Unaligned>(fixed_view_position_.data(), fixed_view_position_.size());
   view_positions_.push_back(vp_origin_);
@@ -62,7 +63,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   view_positions_.push_back(view_front);
 
   Eigen::Vector3d view_top = vp_origin_;
-  view_top.z() = vp_origin_.z() + 0.05;
+  view_top.z() = vp_origin_.z() - 0.05;
   view_positions_.push_back(view_top);
 
   head_base_link_origin_.x() = 0.722;
@@ -73,7 +74,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   arm_left_base_link_origin_.y() = 0.11;
   arm_left_base_link_origin_.z() = 0.094;
 
-  arm_right_base_link_origin_.x() = 0.1070;
+  arm_right_base_link_origin_.x() = 1.070;
   arm_right_base_link_origin_.y() = 0.10;
   arm_right_base_link_origin_.z() = 0.080;
   
@@ -494,8 +495,24 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
   return move_success;
 }
 
+bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
+{
+  geometry_msgs::TransformStamped ee_tf;
+  std::string ref_frame_id = "trolley_local_link";
+  if(getPose(ee_tf, "arm_right_eef_link", ref_frame_id))
+  {
+    ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE. Set Grasping Position");
+    fruit_grasping_position_.x() = ee_tf.transform.translation.x;
+    fruit_grasping_position_.y() = ee_tf.transform.translation.y;
+    fruit_grasping_position_.z() = ee_tf.transform.translation.z;
+    online_fruit_estimator_->setFruitGraspingPosition(fruit_grasping_position_);
+  }
+  return true;
+}
+
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
+  fruit_est_initialised_ = false;
   online_fruit_estimator_.reset();
   if(retrieveInterestedFruit(fruit_id))
   {
@@ -552,12 +569,12 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   ROS_INFO_THROTTLE(2.0, "after getCurrentEstimateOfTheInterestedFruit");
   if(pose_tracker_->isOTGModeReady() == false)
   {
-    ROS_ERROR_STREAM_THROTTLE(1.0, "OTG Mode not ready"<<pose_tracker_->getOTGStatus());
+    ROS_ERROR_STREAM_THROTTLE(5.0, "OTG Mode not ready"<<pose_tracker_->getOTGStatus().status);
     return;
   }
   if(pose_tracker_->isOTGReadyForNewTarget()== false)
   {
-    ROS_ERROR_STREAM_THROTTLE(2.0, "Current OTG Target not reached"<<pose_tracker_->getOTGStatus());
+    ROS_ERROR_STREAM_THROTTLE(2.0, "Current OTG Target not reached"<<pose_tracker_->getOTGStatus().status);
     return;
   }
   bool initial_motion_success = false;
@@ -566,7 +583,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   geometry_msgs::PoseStamped view_pose_stamped;
   if(use_fixed_pose_)
   {
-    ROS_INFO_THROTTLE(2.0, "Entered use_fixed_pose");
+    ROS_INFO_THROTTLE(2.0, "+++++++++++++++++++++++++++++++++++++++++Entered use_fixed_pose++++++++++++++++++++++++++++++++++++++++++");
     compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, fruit_with_peduncle.fruit.fruit_pose.position);
     if(compute_view_pose_success == false)
     {
@@ -582,14 +599,14 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   }
   else
   {
-    ROS_INFO_THROTTLE(2.0, "Entered variable pose");
+    ROS_INFO_THROTTLE(2.0, "VARIABLE POSE*************************************************Entered variable pose***************************************************");
     geometry_msgs::Point vp;
-    if(computeViewpointOriginForZPlane(vp, fruit_with_peduncle.fruit.fruit_pose.position, fruit_with_peduncle.fruit.fruit_size, fruit_with_peduncle.fruit.observed_shape_centroid, 0.95, 0.25) == false)
+    if(computeViewpointOriginForZPlane(vp, orig_est_interested_fruit_.fruit.fruit_pose.position, orig_est_interested_fruit_.fruit.fruit_size, orig_est_interested_fruit_.fruit.observed_shape_centroid, 0.95, 0.25) == false)
     {
       ROS_WARN_STREAM_THROTTLE(2.0, "Error computing vp origin");
       return;
     }
-    compute_view_pose_success = computeViewPoseForZPlane(view_pose_stamped, fruit_with_peduncle.fruit.fruit_pose.position, vp);
+    compute_view_pose_success = computeViewPoseForZPlane(view_pose_stamped, orig_est_interested_fruit_.fruit.fruit_pose.position, vp);
     if(compute_view_pose_success == false)
     {
       ROS_WARN_STREAM_THROTTLE(2.0, "Error computing viewpose");
@@ -605,6 +622,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   }
   if(compute_view_pose_success && perform_motion)
   {
+    ROS_INFO_STREAM_THROTTLE(2.0, "VARIABLE POSE: Send to OTG");
     pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
     initial_motion_done_ = true;
     curr_view_pose_ = view_pose_stamped;
@@ -656,13 +674,21 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
 {
   if(follow_fruit_enabled_ == false)
     return;
-
-  online_fruit_estimator_->computeFruitEstimate();
-  if(online_fruit_estimator_->isNewEstimateAvailable())
+  
+  if(pose_tracker_->isOTGRunning() == false)
   {
-    auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
-    setCurrentEstimateOfTheInterestedFruit(new_estimate);
-    pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+    ROS_INFO_STREAM_THROTTLE(1.0, "OTG not running. Hence compute fruit estimate");
+    online_fruit_estimator_->computeFruitEstimate();
+    if(online_fruit_estimator_->isNewEstimateAvailable())
+    {
+      auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+      setCurrentEstimateOfTheInterestedFruit(new_estimate);
+      pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+    }
+  }
+  else
+  {
+    ROS_WARN_STREAM_THROTTLE(1.0, "OTG running. "<<pose_tracker_->getOTGStatus().status);
   }
 }
 // bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)
@@ -837,7 +863,9 @@ bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& vi
   tf2::fromMsg(fruit_target, fruit_target_eigen);
 
   int idx = pose_iter_ % 5;
-  auto vp_origin = view_positions_[idx];
+  auto vp_origin = vp_origin_;
+  vp_origin.y() = vp_origin.y() + 0.05; 
+  vp_origin.z() = vp_origin.z() + 0.01; 
 
   pose_iter_++;
   view_pose.pose = computeViewPose(fruit_target_eigen, vp_origin, cam_quat);
@@ -875,28 +903,32 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
 
   ideal_target = ray_pt;
 
+  ROS_INFO_STREAM_THROTTLE(1.0, "Origin: "<<ray_origin.transpose()<<"\t Ray target: "<<ideal_target.transpose());
+
   bool success = false;
   Eigen::Vector3d plane_point;
   plane_point.setZero();
-  plane_point(2) = fruit_centre.z + fruit_dim.z + 0.15;
+  plane_point(2) = fruit_centre.z + fruit_dim.z + 0.05;
   Eigen::Vector3d inter_pt;
   for(int num_tries = 0; num_tries < max_num_tries; num_tries++)
   {
     if(calcLinePlaneIntersection(inter_pt, ray_origin, ray_pt, plane_normal_, plane_point) == false)
-    {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Ray plane intersection failure as ray parallel to z axis");
-      plane_point(2) = plane_point(2) + 0.05;
-      continue;
+    {      
+      inter_pt(2) = obs_target.z + 0.05;
+      inter_pt(1) = obs_target.y - 0.2;
+      inter_pt(0) = obs_target.x;
+      ROS_INFO_STREAM_THROTTLE(1.0, "Ray plane intersection failure as ray parallel to z axis. Hence recalculating..."<<inter_pt.transpose());
+
     }
     if(((inter_pt - head_base_link_origin_).norm() > 0.6))
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point unreachable. Hence recalculating with lower z"<<inter_pt);
+      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point unreachable. Hence recalculating with lower z "<<inter_pt.transpose());
       plane_point(2) = plane_point(2) - 0.05;
       continue;
     }
-    if(((inter_pt.head(2) - head_base_link_origin_.head(2)).norm() > 0.43))
+    if(((inter_pt.head(2) - head_base_link_origin_.head(2)).norm() > 0.54))
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point unreachable in x-y plane. Hence recalculating with fruit centre instead of observed centroid"<<inter_pt);
+      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point unreachable in x-y plane. Hence recalculating with fruit centre instead of observed centroid"<<inter_pt.transpose()<<"x-y dist: "<<(inter_pt.head(2) - head_base_link_origin_.head(2)).norm());
       ray_pt(0) = fruit_centre.x;
       ray_pt(1) = fruit_centre.y;
       ray_pt(2) = fruit_centre.z;
@@ -904,13 +936,13 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
     }
     if((inter_pt-ray_origin).norm() < min_distance)
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point close to ray origin. Hence recalculating with higher z");
+      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection point close to ray origin. Hence recalculating with higher z"<<inter_pt.transpose());
       plane_point(2) = plane_point(2) + 0.05;
       continue;
     }
     if(inter_pt(0) < arm_left_base_link_origin_(0))
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection pt is too much to the left"<<inter_pt);
+      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection pt is too much to the left"<<inter_pt.transpose());
       ray_pt(0) = fruit_centre.x;
       ray_pt(1) = fruit_centre.y;
       ray_pt(2) = fruit_centre.z;
@@ -918,7 +950,7 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
     }
     if(inter_pt(0) > arm_right_base_link_origin_(0))
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection pt is too much to the right"<<inter_pt);
+      ROS_INFO_STREAM_THROTTLE(1.0, "Intersection pt is too much to the right"<<inter_pt.transpose());
       ray_pt(0) = fruit_centre.x;
       ray_pt(1) = fruit_centre.y;
       ray_pt(2) = fruit_centre.z;
@@ -929,6 +961,7 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
   }
   if(success)
   {
+    ROS_INFO_STREAM_THROTTLE(1.0, "GR88888888888888. Interpt found: "<<inter_pt.transpose());
     vp_origin.x = inter_pt.x();
     vp_origin.y = inter_pt.y();
     vp_origin.z = inter_pt.z();
@@ -936,17 +969,20 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
   }
   else
   {
+    ROS_WARN_STREAM_THROTTLE(1.0, "OOOOOOOOOOOOPS. Interpt not found: "<<inter_pt.transpose());
     Eigen::Vector3d vp_closest;
     double max_cosine_distance = -2;
     int max_cosine_distance_index = -1;
+    int max_similarity_score = -1000;
     for(int i = 0; i < view_positions_.size(); ++i)
     {
-      double cosine_distance, euc_distance;
+      double cosine_distance, euc_distance, similarity_score;
       auto vp = view_positions_[i];
-      if(utils::computeSimilarity(cosine_distance, euc_distance, ray_origin, ideal_target, vp))
+      if(utils::computeSimilarity(similarity_score, cosine_distance, euc_distance, ray_origin, ideal_target, vp))
       {
-        if(cosine_distance > max_cosine_distance)
+        if(similarity_score > max_similarity_score)
         {
+          max_similarity_score = similarity_score;
           max_cosine_distance_index = i;
         }
       }
@@ -957,10 +993,12 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
       vp_origin.x = vp_closest.x();
       vp_origin.y = vp_closest.y();
       vp_origin.z = vp_closest.z();
+      ROS_INFO_STREAM_THROTTLE(1.0, "Pose similar to ideal: "<<vp_closest.transpose()<<" similarity score: "<<max_similarity_score);
       return true;
     }
     else
     {
+      ROS_WARN_STREAM_THROTTLE(2.0, "None of the poses are similarly aligned");
       return false;
     }
   }
@@ -988,7 +1026,7 @@ bool ActivePerciever::computeViewPoseForZPlane(geometry_msgs::PoseStamped& view_
 
   view_pose.pose = computeViewPose(fruit_target_eigen, vp_eigen, cam_quat);
   view_pose.header.frame_id = ref_frame_id;
-  ROS_INFO_THROTTLE(1.0, "New Pose Computed");
+  ROS_INFO_STREAM_THROTTLE(1.0, "New Pose Computed"<<view_pose.pose);
   return true;
 }
 

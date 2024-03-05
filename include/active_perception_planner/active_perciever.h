@@ -78,6 +78,8 @@ public:
   bool moveToInterestedFruitObservationPose(const uint &fruit_id);
 
   bool startFollowFruit(const uint &fruit_id);
+  
+  bool startFollowPeduncle(const uint &fruit_id);
 
   bool stopFollowFruit();
 
@@ -212,7 +214,7 @@ protected:
 
   bool computeViewpointOriginForZPlane(geometry_msgs::Point& vp_origin, const geometry_msgs::Point& fruit_centre, const geometry_msgs::Vector3& fruit_dim, const geometry_msgs::Point& obs_target, double z_plane = 0.95, double min_distance=0.30);
   bool computeViewPoseForZPlane(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target, const geometry_msgs::Point& vp_origin);
-
+  
   //sensor_msgs::JointState
 
   std::vector<std::string> mapping_poses_list_; // list of named poses for exploring the current local poses
@@ -225,6 +227,9 @@ protected:
 
   bool enable_check_manipulation_arms_stowed_ = false;
   bool checkManipulationArmsStowed();
+
+  Eigen::Vector3d fruit_grasping_position_; 
+
 
 
   bool moveToNextMappingPose(const std::string &next_pose);
@@ -244,7 +249,7 @@ protected:
   bool retrieveInterestedFruit(const uint &desired_fruit_id);
 
   std::deque<DetectedFruitWithPeduncle> interested_fruit_detections_buffer_;
-  DetectedFruitWithPeduncle curr_est_interested_fruit_, prev_est_interested_fruit_;
+  DetectedFruitWithPeduncle curr_est_interested_fruit_, prev_est_interested_fruit_, orig_est_interested_fruit_;
 
 
   bool updateInterestedFruit(const sensor_msgs::PointCloud2 &surface_cloud); // const geometry_msgs::Point& fruit_centre);
@@ -287,7 +292,10 @@ protected:
     if(fruit_est_initialised)
       prev_est_interested_fruit_ = curr_est_interested_fruit_;
     else
+    {
+      orig_est_interested_fruit_ = fruit;
       prev_est_interested_fruit_ = fruit;
+    }
 
     curr_est_interested_fruit_ = fruit;
   }
