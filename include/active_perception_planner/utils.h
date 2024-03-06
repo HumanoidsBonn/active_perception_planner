@@ -245,7 +245,7 @@ inline void convert(const geometry_msgs::PoseStamped& pose, geometry_msgs::Trans
   trans.header = pose.header;
 }
 
-inline Vector6d computeWeightedAverageUsingVariance(const Eigen::Vector3d& m1, const Eigen::Vector3d& m2, const Eigen::Vector3d& s1, const Eigen::Vector3d& s2)
+inline Vector6d computeWeightedAverageUsingVariance(const Eigen::Vector3d& m1, const Eigen::Vector3d& m2, const Eigen::Vector3d& s1, const Eigen::Vector3d& s2, double alpha = 0.7)
 {
   Eigen::Vector3d p1;
   p1.x() = 1/s1.x();

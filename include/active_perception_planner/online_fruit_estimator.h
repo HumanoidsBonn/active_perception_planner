@@ -26,7 +26,9 @@ private:
   std::deque<std::pair<typename pcl::PointCloud<PointT>::Ptr, ros::Time>> buffer;
   int buffer_size; // Maximum number of frames in buffer
   double max_age;  // Maximum age of a frame in seconds
-
+  double search_radius = 0.01f;
+  int polynomial_order = 2;
+  ;
 public:
   PointCloudBuffer(int buffer_size, double max_age) : buffer_size(buffer_size), max_age(max_age) {}
 
@@ -78,9 +80,16 @@ public:
     {
       *merged_cloud += *frame.first;
     }
+    typename pcl::search::KdTree<PointT>::Ptr tree(new pcl::search::KdTree<PointT>);
+    tree->setInputCloud(merged_cloud);
     // Smooth merged cloud with MLS filter
     pcl::MovingLeastSquares<PointT, PointT> mls;
+    mls.setComputeNormals(false); // Disable normal estimation
     mls.setInputCloud(merged_cloud);
+    mls.setSearchMethod(tree);
+    mls.setSearchRadius(search_radius); // Adjust this value as needed
+    mls.setPolynomialFit(true);
+    mls.setPolynomialOrder(polynomial_order); // Adjust this value as needed
     typename pcl::PointCloud<PointT>::Ptr smoothed_cloud(new pcl::PointCloud<PointT>);
     mls.process(*smoothed_cloud);
 
@@ -160,6 +169,7 @@ class OnlineFruitEstimator
   bool ee_pos_update_available_ = false;
 
   ros::Publisher pub_peduncle_fruitpoint_, pub_peduncle_stempoint_, pub_fruit_top_;
+  ros::Publisher pub_peduncle_cloud_;
 
   int fruit_id_of_confident_detection_ = -1;
   bool confident_id_available_ = false;
@@ -230,7 +240,7 @@ class OnlineFruitEstimator
 
   Eigen::Vector3f filter(const Eigen::Vector3f&& prev_point, const Eigen::Vector3f& curr_point, double alpha= 0.1);
 
-  Vector6d filterUsingVariances(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, const Eigen::Vector3d& prev_var, const Eigen::Vector3d& curr_var);
+  Vector6d filterUsingVariances(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, const Eigen::Vector3d& prev_var, const Eigen::Vector3d& curr_var, double alpha = 0.7);
 
   geometry_msgs::Pose updateAccordingToGripperPosition(const geometry_msgs::Pose& prev_pose, const geometry_msgs::Pose& curr_pose, double alpha = 0.1) ;
 

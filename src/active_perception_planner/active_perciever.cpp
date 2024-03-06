@@ -503,16 +503,17 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 {
   start_peduncle_following_ = true;
+  ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE"<<start_peduncle_following_);
   geometry_msgs::TransformStamped ee_tf;
   std::string ref_frame_id = "trolley_local_link";
-  if(getPose(ee_tf, "arm_right_eef_link", ref_frame_id))
-  {
-    ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE. Set Grasping Position");
-    fruit_grasping_position_.x() = ee_tf.transform.translation.x;
-    fruit_grasping_position_.y() = ee_tf.transform.translation.y;
-    fruit_grasping_position_.z() = ee_tf.transform.translation.z;
-    online_fruit_estimator_->setFruitGraspingPosition(fruit_grasping_position_);
-  }
+  // if(getPose(ee_tf, "arm_right_eef_link", ref_frame_id))
+  // {
+  //   ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE. Set Grasping Position");
+  //   fruit_grasping_position_.x() = ee_tf.transform.translation.x;
+  //   fruit_grasping_position_.y() = ee_tf.transform.translation.y;
+  //   fruit_grasping_position_.z() = ee_tf.transform.translation.z;
+  //   online_fruit_estimator_->setFruitGraspingPosition(fruit_grasping_position_);
+  // }
   return true;
 }
 
@@ -591,7 +592,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   if(use_fixed_pose_)
   {
     ROS_INFO_THROTTLE(2.0, "+++++++++++++++++++++++++++++++++++++++++Entered use_fixed_pose++++++++++++++++++++++++++++++++++++++++++");
-    compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, fruit_with_peduncle.fruit.fruit_pose.position);
+    compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, orig_est_interested_fruit_.fruit.fruit_pose.position);
     if(compute_view_pose_success == false)
     {
       ROS_WARN_STREAM_THROTTLE(2.0, "Error computing viewpose");
@@ -634,47 +635,6 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
     initial_motion_done_ = true;
     curr_view_pose_ = view_pose_stamped;
   }
-
-  //     else
-  //     {
-  //       ROS_ERROR_STREAM("+++++++++++++++++++++++++++++++++++++++Cannot compute initial fixed viewpose");
-  //     }
-  //     initial_motion_done_ = true;
-  //     if(initial_motion_success == false)
-  //     {
-  //       ROS_ERROR_STREAM("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!Cannot move to initial pose using motion planning. Using Lookat Pose directly");
-  //       if(compute_view_pose_success)
-  //       {
-  //         if(ik_controller_->switchController("head_pos_joint_group_pos_controller", "head_controller"))
-  //           if(ik_controller_->setTrackerTargetPose(view_pose))
-  //             return;
-  //       }
-  //     }
-  //     else
-  //     {
-  //       ROS_INFO_STREAM("*************************************Success! Moved to Initial Fixed View Pose using moveit");
-  //       return; 
-  //     }
-  //   }
-  // }
-  // else
-  // {
-  //   if(use_fixed_pose_)
-  //   {
-  //     if(!ik_controller_->isIKControllerEnabled())
-  //       ik_controller_->startDawnIK();
-
-  //     Eigen::Vector3d fruit_target_eigen;
-  //     tf2::fromMsg(fruit_with_peduncle.fruit.fruit_pose.position, fruit_target_eigen);
-  //     ik_controller_->lookAtTarget(vp_origin_, fruit_target_eigen); 
-  //   }
-  //   else
-  //   {
-
-  //   }
-  // }
-  // auto fruit= getasRosMsgType(interested_fruit_);
-  // pub_interested_fruit_.publish(fruit);
 }
 
 void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::TimerEvent& e)
@@ -692,6 +652,7 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
     }
     else
     {
+      ROS_INFO_STREAM_THROTTLE(1.0, "Following Peduncle...");
       online_fruit_estimator_->computePeduncleEstimate();
     }
     if(online_fruit_estimator_->isNewEstimateAvailable())
