@@ -146,6 +146,11 @@ ActivePercieverStatus ActivePerciever::getActivePercieverStatus()
 
 bool ActivePerciever::clearSceneMap()
 {
+  follow_fruit_enabled_.store(false);
+  {
+    std::scoped_lock lk(mutex_timer_estimator_);
+    online_fruit_estimator_.reset();
+  }
   pose_tracker_->switchXarmToTraj();
   std_srvs::Empty empty_srv;
   if(fruit_map_available_)
@@ -502,7 +507,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 
 bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 {
-  start_peduncle_following_ = true;
+  start_peduncle_following_.store(true);
   ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE"<<start_peduncle_following_);
   geometry_msgs::TransformStamped ee_tf;
   std::string ref_frame_id = "trolley_local_link";
@@ -519,19 +524,28 @@ bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 
 bool ActivePerciever::startFollowFruit(const uint &fruit_id)
 {
+  follow_fruit_enabled_.store(false);
+  if(timer_fruit_estimator_.hasStarted())
+    timer_fruit_estimator_.stop();
+  sleep(0.2);
   fruit_est_initialised_ = false;
-  start_peduncle_following_ = false;
-  online_fruit_estimator_.reset();
+  start_peduncle_following_.store(false);
+  {
+    std::scoped_lock lk(mutex_timer_estimator_);
+    online_fruit_estimator_.reset();
+  }
   if(retrieveInterestedFruit(fruit_id))
   {
     if(fruit_est_initialised_ == false)
     {
       setCurrentEstimateOfTheInterestedFruit(interested_fruit_);
       fruit_est_initialised_ = true;
-      online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(nhp_, roi_detector_, se_detector_, interested_fruit_);
+      {
+        std::scoped_lock lk(mutex_timer_estimator_);
+        online_fruit_estimator_ = std::make_shared<active_perception_planner::OnlineFruitEstimator>(nhp_, roi_detector_, se_detector_, interested_fruit_);
+      }
     }
     pose_tracker_->switchXarmToOTG();
-    follow_fruit_enabled_ = true;
 
     if(fruit_est_initialised_ && timer_fruit_follower_.hasStarted() == false)
     {
@@ -571,7 +585,7 @@ void ActivePerciever::publishStatusTimerCallback(const ros::TimerEvent&)
 
 void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 {
-  if(follow_fruit_enabled_ == false)
+  if(follow_fruit_enabled_.load() == false)
     return;
   auto fruit_with_peduncle = getCurrentEstimateOfTheInterestedFruit();
   ROS_INFO_THROTTLE(2.0, "after getCurrentEstimateOfTheInterestedFruit");
@@ -639,27 +653,63 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
 
 void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::TimerEvent& e)
 {
-  if(follow_fruit_enabled_ == false)
+  if(follow_fruit_enabled_.load() == false)
     return;
   
   if(pose_tracker_->isOTGRunning() == false)
   {
     ROS_INFO_STREAM_THROTTLE(1.0, "OTG not running. Hence compute fruit estimate");
     bool is_new_estimate_available = false;
-    if(start_peduncle_following_ == false)
+    if(start_peduncle_following_.load() == false)
     {
-      online_fruit_estimator_->computeFruitEstimate();
+      ROS_INFO_STREAM_THROTTLE(1.0, "Following Fruit...");
+      {
+        if(follow_fruit_enabled_.load() == false)
+          return;
+        {
+          std::scoped_lock lk(mutex_timer_estimator_);
+          if(online_fruit_estimator_ !=nullptr)
+            online_fruit_estimator_->computeFruitEstimate();
+        }
+      }
     }
     else
     {
       ROS_INFO_STREAM_THROTTLE(1.0, "Following Peduncle...");
-      online_fruit_estimator_->computePeduncleEstimate();
+      {
+        if(follow_fruit_enabled_.load() == false)
+          return;
+        {
+          std::scoped_lock lk(mutex_timer_estimator_);
+          if(online_fruit_estimator_ !=nullptr)
+            online_fruit_estimator_->computePeduncleEstimate();
+        }
+      }
     }
-    if(online_fruit_estimator_->isNewEstimateAvailable())
     {
-      auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+      if(follow_fruit_enabled_.load() == false)
+        return;
+      {
+        std::scoped_lock lk(mutex_timer_estimator_);
+        if(online_fruit_estimator_ !=nullptr)
+          is_new_estimate_available = online_fruit_estimator_->isNewEstimateAvailable();
+      }
+    }
+    if(is_new_estimate_available)
+    {
+      DetectedFruitWithPeduncle new_estimate;
+      {
+        if(follow_fruit_enabled_.load() == false)
+          return;
+        {
+          std::scoped_lock lk(mutex_timer_estimator_);
+          if(online_fruit_estimator_ != nullptr)
+            new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+        }
+      }
       if(new_estimate.has_peduncle == false)
         ROS_WARN_STREAM_THROTTLE(2.0, "New Fruit Estimate BUT NO PEDUNCLE");
+      
       setCurrentEstimateOfTheInterestedFruit(new_estimate);
       pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
     }

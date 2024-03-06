@@ -94,7 +94,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
     act_detection_server_->setAborted(detection_result_);
     return;
   }
-  sleep(1.0);
+  sleep(0.1);
   if(disable_motion_ == false)
   {
     if(active_perciever_->performLocalMappingMotion() == false)
