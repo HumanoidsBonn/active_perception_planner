@@ -16,6 +16,7 @@
 #include <pcl/sample_consensus/sac_model.h>
 #include <opencv2/opencv.hpp>
 #include <pointcloud_roi/detected_roi_filter.h>
+#include <unordered_set>
 
 typedef pcl::PointXYZ PointT;
 typedef pcl::PointCloud<PointT> PointCloudT;

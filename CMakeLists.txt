@@ -6,10 +6,10 @@ add_compile_options(-std=c++17)
 
 set(CMAKE_BUILD_TYPE "Release")
 
-include(GNUInstallDirs)
-list(APPEND CMAKE_MODULE_PATH "/usr/local/lib/cmake/OpenVDB")
-find_package(OpenVDB REQUIRED)
-find_package(VDBFusion REQUIRED)
+#include(GNUInstallDirs)
+#list(APPEND CMAKE_MODULE_PATH "/usr/local/lib/cmake/OpenVDB")
+#find_package(OpenVDB REQUIRED)
+#find_package(VDBFusion REQUIRED)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)

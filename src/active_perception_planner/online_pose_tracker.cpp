@@ -7,7 +7,7 @@ using namespace active_perception_planner;
 
 OnlinePoseTracker::OnlinePoseTracker(ros::NodeHandle& nhp):nhp_(nhp)//, status_monitor_(nhp_, "status")
 {
-  pub_goal_ = nhp_.advertise<dawn_ik::IKGoal>("/dawn_ik_solver/ik_goal", 1);
+  //pub_goal_ = nhp_.advertise<dawn_ik::IKGoal>("/dawn_ik_solver/ik_goal", 1);
   client_start_dawn_ik_  = nhp_.serviceClient<std_srvs::Empty>("/dawn_ik_solver/start");
   client_stop_dawn_ik_   = nhp_.serviceClient<std_srvs::Empty>("/dawn_ik_solver/stop");
 
@@ -51,92 +51,92 @@ OnlinePoseTracker::OnlinePoseTracker(ros::NodeHandle& nhp):nhp_(nhp)//, status_m
 
 }
 
-bool OnlinePoseTracker::startDawnIK()
-{
-  if(callEmptyService(client_start_dawn_ik_))
-  {
-    is_enabled_ = true;
-    return true;
-  }
-  return false;
+// bool OnlinePoseTracker::startDawnIK()
+// {
+//   if(callEmptyService(client_start_dawn_ik_))
+//   {
+//     is_enabled_ = true;
+//     return true;
+//   }
+//   return false;
 
-}
-bool OnlinePoseTracker::stopDawnIK()
-{
-  if(callEmptyService(client_stop_dawn_ik_))
-  {
-    is_enabled_ = false;
-    return true;
-  }
-  return false;
-}
+// }
+// bool OnlinePoseTracker::stopDawnIK()
+// {
+//   if(callEmptyService(client_stop_dawn_ik_))
+//   {
+//     is_enabled_ = false;
+//     return true;
+//   }
+//   return false;
+// }
 
-bool OnlinePoseTracker::updateGoal(DawnIKControllerMode mode, const DawnIKGoals& goals)
-{
-  dawn_ik::IKGoal goal;
-  goal.mode = mode;
-  if (mode == DawnIKControllerMode::ENDPOINT_POSE)
-  {
-    goal.m1_x = goals.pose.position.x;
-    goal.m1_y = goals.pose.position.y;
-    goal.m1_z = goals.pose.position.z;
-    goal.m1_limit_dist = 0.1;
-    goal.m1_weight = 4.0;
-  }
-  else if (mode == DawnIKControllerMode::ENDPOINT_POSE_ORIENTATION)
-  {
-    goal.m1_x = goals.pose.position.x;
-    goal.m1_y = goals.pose.position.y;
-    goal.m1_z = goals.pose.position.z;
-    goal.m1_limit_dist = 0.1;
-    goal.m1_weight = 4.0;
-    goal.m2_w = goals.pose.orientation.w;
-    goal.m2_x = goals.pose.orientation.x;
-    goal.m2_y = goals.pose.orientation.y;
-    goal.m2_z = goals.pose.orientation.z;
-    goal.m2_weight = 1.0;
-  }
-  else if (mode == DawnIKControllerMode::ENDPOINT_POSE_LOOKATGOAL)
-  {
-    goal.m1_x = goals.pose.position.x;
-    goal.m1_y = goals.pose.position.y;
-    goal.m1_z = goals.pose.position.z;
-    goal.m1_weight = 1.0;
-    goal.m3_x = goals.target.position.x;
-    goal.m3_y = goals.target.position.y;
-    goal.m3_z = goals.target.position.z;
-    goal.m3_weight = 1.0;
-  }
-  else
-  {
-    ROS_ERROR("DawnIKController::updateGoal: Unknown mode: %d", mode);
-    return false;
-  }
-  pub_goal_.publish(goal);
-  return true;
+// bool OnlinePoseTracker::updateGoal(DawnIKControllerMode mode, const DawnIKGoals& goals)
+// {
+//   dawn_ik::IKGoal goal;
+//   goal.mode = mode;
+//   if (mode == DawnIKControllerMode::ENDPOINT_POSE)
+//   {
+//     goal.m1_x = goals.pose.position.x;
+//     goal.m1_y = goals.pose.position.y;
+//     goal.m1_z = goals.pose.position.z;
+//     goal.m1_limit_dist = 0.1;
+//     goal.m1_weight = 4.0;
+//   }
+//   else if (mode == DawnIKControllerMode::ENDPOINT_POSE_ORIENTATION)
+//   {
+//     goal.m1_x = goals.pose.position.x;
+//     goal.m1_y = goals.pose.position.y;
+//     goal.m1_z = goals.pose.position.z;
+//     goal.m1_limit_dist = 0.1;
+//     goal.m1_weight = 4.0;
+//     goal.m2_w = goals.pose.orientation.w;
+//     goal.m2_x = goals.pose.orientation.x;
+//     goal.m2_y = goals.pose.orientation.y;
+//     goal.m2_z = goals.pose.orientation.z;
+//     goal.m2_weight = 1.0;
+//   }
+//   else if (mode == DawnIKControllerMode::ENDPOINT_POSE_LOOKATGOAL)
+//   {
+//     goal.m1_x = goals.pose.position.x;
+//     goal.m1_y = goals.pose.position.y;
+//     goal.m1_z = goals.pose.position.z;
+//     goal.m1_weight = 1.0;
+//     goal.m3_x = goals.target.position.x;
+//     goal.m3_y = goals.target.position.y;
+//     goal.m3_z = goals.target.position.z;
+//     goal.m3_weight = 1.0;
+//   }
+//   else
+//   {
+//     ROS_ERROR("DawnIKController::updateGoal: Unknown mode: %d", mode);
+//     return false;
+//   }
+//   pub_goal_.publish(goal);
+//   return true;
 
-}
+// }
 
-bool OnlinePoseTracker::lookAtTarget(const Eigen::Vector3d& position, const Eigen::Vector3d& target)
-{
-  DawnIKControllerMode mode = DawnIKControllerMode::ENDPOINT_POSE_LOOKATGOAL;
-  DawnIKGoals goal;
-  goal.pose.position.x = position.x();
-  goal.pose.position.y = position.y();
-  goal.pose.position.z = position.z();
-  goal.target.position.x = target.x();
-  goal.target.position.y = target.y();
-  goal.target.position.z = target.z();
-  return updateGoal(mode, goal);
-}
+// bool OnlinePoseTracker::lookAtTarget(const Eigen::Vector3d& position, const Eigen::Vector3d& target)
+// {
+//   DawnIKControllerMode mode = DawnIKControllerMode::ENDPOINT_POSE_LOOKATGOAL;
+//   DawnIKGoals goal;
+//   goal.pose.position.x = position.x();
+//   goal.pose.position.y = position.y();
+//   goal.pose.position.z = position.z();
+//   goal.target.position.x = target.x();
+//   goal.target.position.y = target.y();
+//   goal.target.position.z = target.z();
+//   return updateGoal(mode, goal);
+// }
 
-bool OnlinePoseTracker::fullPoseTarget(const geometry_msgs::Pose& desired_pose)
-{
-  DawnIKControllerMode mode = DawnIKControllerMode::ENDPOINT_POSE_ORIENTATION;
-  DawnIKGoals goal;
-  goal.pose = desired_pose;
-  return updateGoal(mode, goal);
-}
+// bool OnlinePoseTracker::fullPoseTarget(const geometry_msgs::Pose& desired_pose)
+// {
+//   DawnIKControllerMode mode = DawnIKControllerMode::ENDPOINT_POSE_ORIENTATION;
+//   DawnIKGoals goal;
+//   goal.pose = desired_pose;
+//   return updateGoal(mode, goal);
+// }
 
 bool OnlinePoseTracker::callEmptyService(ros::ServiceClient& client)
 {
@@ -241,7 +241,7 @@ oc2_interface_msgs::ControllerStatus OnlinePoseTracker::getOTGStatus()
 
 bool OnlinePoseTracker::isOTGRunning()
 {
-  return otg_status_.status != 3 || otg_status_.status != oc2_interface_msgs::ControllerStatus::WAITING;
+  return otg_status_.status == oc2_interface_msgs::ControllerStatus::RUNNING || otg_status_.status != oc2_interface_msgs::ControllerStatus::PROXIMITY;
 }
 
 bool OnlinePoseTracker::isOTGReadyForNewTarget()

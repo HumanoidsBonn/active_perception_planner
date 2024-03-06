@@ -600,13 +600,16 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
 {
   if(follow_fruit_enabled_ == false)
     return;
-
-  online_fruit_estimator_->computeFruitEstimate();
-  if(online_fruit_estimator_->isNewEstimateAvailable())
+  if(pose_tracker_->isOTGRunning() == false)
   {
-    auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
-    setCurrentEstimateOfTheInterestedFruit(new_estimate);
-    pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+    ROS_INFO_STREAM_THROTTLE(1.0, "OTG not running. Hence compute fruit estimate");
+    online_fruit_estimator_->computeFruitEstimate();
+    if(online_fruit_estimator_->isNewEstimateAvailable())
+    {
+      auto new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+      setCurrentEstimateOfTheInterestedFruit(new_estimate);
+      pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+    }
   }
 }
 // bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)

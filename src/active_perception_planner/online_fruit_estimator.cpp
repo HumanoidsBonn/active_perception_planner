@@ -31,7 +31,7 @@ OnlineFruitEstimator::OnlineFruitEstimator(ros::NodeHandle& nhp, std::shared_ptr
     sor.setStddevMulThresh(1.0); // Set the standard deviation multiplier threshold
     sor.filter(*best_peduncle_.peduncle_cloud);
   }
-  roi_detector_->enableContinuousDetections(true);
+  roi_detector_->enableContinuousDetections(false);
 
   pub_peduncle_fruitpoint_  = nhp_.advertise<geometry_msgs::Point>("peduncle_fruitpoint", 1, false);
   pub_peduncle_stempoint_   = nhp_.advertise<geometry_msgs::Point>("peduncle_stempoint", 1, false);
@@ -41,7 +41,16 @@ OnlineFruitEstimator::OnlineFruitEstimator(ros::NodeHandle& nhp, std::shared_ptr
 void OnlineFruitEstimator::computeFruitEstimate()
 {
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = nullptr;
-  detections = roi_detector_->readSemanticInstanceDetections();
+  roi_detector_->enableTrackedDetectionCallback(true);
+  auto t_start = ros::Time::now();
+  sleep(0.05);
+  do
+  { //tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
+    detections = roi_detector_->readSemanticInstanceDetections();
+    sleep(0.05);
+  }
+  while(detections == nullptr && (ros::Time::now()-t_start).toSec() < 0.25);
+
 
   if(detections == nullptr)
   {
