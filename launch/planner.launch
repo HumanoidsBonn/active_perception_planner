@@ -7,6 +7,8 @@
 <rosparam command="load" file="$(find active_perception_planner)/config/head_joint_states.yaml" />
 
 <node name="active_perciever" pkg="active_perception_planner" type="active_perciever" output="screen"  launch-prefix="$(arg launch_prefix)">
+    <param name="use_fixed_pose"                value="true" />
+    <param name="use_exact_sync"                value="true" />
     <param name="disable_motion"                value="false" />
     <param name="wait_time"                     value="0.0" />
     <param name="disable_d405_processing"       value="true" />
