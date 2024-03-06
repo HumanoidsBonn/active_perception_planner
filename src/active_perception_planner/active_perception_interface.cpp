@@ -70,8 +70,8 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
 	const auto& goal = act_detection_server_->acceptNewGoal();
 
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.7;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
+  srv_set_conf_iou.request.confidence_threshold = 0.75;
+  srv_set_conf_iou.request.confidence_threshold = 0.6;
 
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
@@ -200,8 +200,8 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
 {
   callEmptyService(client_stop_depth_seg_);
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
+  srv_set_conf_iou.request.iou = 0.5;
   
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
@@ -215,14 +215,14 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)
 {
   //callEmptyService(client_start_depth_seg_);
-  yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.55;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
+  // yolact_ros_msgs::SetConfidence srv_set_conf_iou;
+  // srv_set_conf_iou.request.confidence_threshold = 0.55;
+  // srv_set_conf_iou.request.iou = 0.5;
   
-  if (!client_set_confidence_iou_.call(srv_set_conf_iou))
-  {
-    ROS_ERROR("Failed to call service");
-  }
+  // if (!client_set_confidence_iou_.call(srv_set_conf_iou))
+  // {
+  //   ROS_ERROR("Failed to call service");
+  // }
 
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)

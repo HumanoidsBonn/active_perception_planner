@@ -555,6 +555,7 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
     {
       timer_fruit_estimator_.start();
     }
+    follow_fruit_enabled_.store(true);
     return true;
   }
   return false;
@@ -887,7 +888,7 @@ bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& vi
   ROS_INFO_THROTTLE(1.0, "Computing new pose");
   geometry_msgs::TransformStamped camera_tf;
   std::string ref_frame_id = "trolley_local_link";
-  if(getPose(camera_tf, "zed2i_camera_center", ref_frame_id)== false)
+  if(getPose(camera_tf, ref_frame_id, "zed2i_camera_center")== false)
   {
     return false;
   }
