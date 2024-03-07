@@ -26,6 +26,7 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   client_start_obj_det_      = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
   client_stop_obj_det_       = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
   client_set_confidence_iou_ = nhp_.serviceClient<yolact_ros_msgs::SetConfidence>("/yolo_segmentation_ros_node/set_confidence_iou");
+  client_set_roi_            = nhp_.serviceClient<yolact_ros_msgs::SetRegionOfInterest>("/yolo_segmentation_ros_node/set_roi");
 
   if(disable_d405_processing_ == false)
   {
@@ -144,7 +145,12 @@ void ActivePercieverInterface::preemptDetectionServerGoalCallback()
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
 {
-  //callEmptyService(client_start_depth_seg_);
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
+  }
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
   {
@@ -202,10 +208,15 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
   srv_set_conf_iou.request.iou = 0.5;
-  
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
-    ROS_ERROR("Failed to call service");
+    ROS_ERROR("Failed to call set confidence service");
+  }
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = true;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
   }
   active_perciever_->startFollowPeduncle(req.fruit_id);
   res.success = true;
@@ -223,6 +234,13 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
   // {
   //   ROS_ERROR("Failed to call service");
   // }
+
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
+  }
 
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
