@@ -17,6 +17,7 @@
 #include <oc2_interface_msgs/StartFollowPeduncle.h>
 
 #include <yolact_ros_msgs/SetConfidence.h>
+#include <yolact_ros_msgs/SetRegionOfInterest.h>
 
 namespace active_perception_planner
 {
@@ -53,7 +54,7 @@ protected:
 
   ros::ServiceClient client_start_depth_seg_d405_, client_stop_depth_seg_d405_, client_start_obj_det_d405_, client_stop_obj_det_d405_;
 
-  ros::ServiceClient client_set_confidence_iou_;
+  ros::ServiceClient client_set_confidence_iou_, client_set_roi_;
 
   using DetectionAction = oc2_interface_msgs::DetectFruitsAction;
 	using DetectionServer = actionlib::SimpleActionServer<DetectionAction>;

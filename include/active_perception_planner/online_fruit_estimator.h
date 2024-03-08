@@ -135,6 +135,12 @@ class OnlineFruitEstimator
   tf2_ros::Buffer tf_buffer_;
   tf2_ros::TransformListener tf_listener_;
 
+  std::mutex mutex_tf_;
+
+  ros::Timer timer_tf_;
+
+  void processTFTimerCallback(const ros::TimerEvent& e);
+
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
   std::shared_ptr<superellipsoid::SuperellipsoidDetector> se_detector_;
   
@@ -154,12 +160,17 @@ class OnlineFruitEstimator
   bool is_new_estimate_available_ = false;
   bool is_new_peduncle_estimate_available_ = true;
 
+  bool is_peduncle_computed_ = false;
+  Peduncle computed_peduncle_;
+
   int num_pepper_detections_missed_ = 0;
   int num_peduncle_detections_missed_ = 0;
 
   double new_fruit_gain_ = 0.2;
 
   std::mutex mutex_;
+
+  Eigen::Vector3d cutter_ee_pos_;
 
   Eigen::Vector3d fruit_grasping_position_; 
   Eigen::Vector3d prev_ee_pos_;
@@ -175,6 +186,8 @@ class OnlineFruitEstimator
   bool confident_id_available_ = false;
 
   private:
+
+  Eigen::Vector3d getCutterEEPosition();
 
   inline void setCurrentEstimateOfTheInterestedFruit(const DetectedFruitWithPeduncle& fruit, bool fruit_est_initialised = true)
   {
@@ -258,6 +271,9 @@ class OnlineFruitEstimator
   void publishDebug();
 
   bool isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle);
+
+  bool isCutterOccludingPeduncle(const Eigen::Vector3d& cutter_ee_pos, const Peduncle& peduncle, double dist_threshold);
+
 
 };
 

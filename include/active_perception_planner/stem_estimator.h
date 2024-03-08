@@ -61,10 +61,15 @@ class StemEstimator
 
     std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets_;
 
+    int single_stem_min_points_ = 10;
+    int merged_stem_min_points_ = 10;
+
 
     void setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets);
 
     void processStemDetections();
+
+    void mergeSegmentsWithinSameDetection(std::vector<Stem>& stems);
 
     void mergeNewWithExistingStems(const std::vector<Stem>& new_stems);
 
@@ -88,6 +93,17 @@ class StemEstimator
     
     void findTopAndBottomPoints(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point);
 
+    void calculateStemParameters(Stem& stem);
+    
+    bool isStemTooShort(const Eigen::Vector3f& top_point, const Eigen::Vector3f& bottom_point, float min_height = 0.05f);
+
+    void setStems(const std::vector<Stem>& stems);
+
+
+    bool isStemApproximatelyParallelToZAxis(const Eigen::Vector3f& line_direction, float threshold_angle_degrees);
+
+    std::vector<Stem> createStemsFromCurrentDetections(const std::vector<pointcloud_roi::SemanticInstanceDetection>& stem_detections);
+    
     void processingThread();
 
 

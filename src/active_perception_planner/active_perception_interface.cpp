@@ -26,6 +26,7 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
   client_start_obj_det_      = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/start");
   client_stop_obj_det_       = nhp_.serviceClient<std_srvs::Empty>("/yolo_segmentation_ros_node/stop"); //d405_yolo_segmentation_ros_node
   client_set_confidence_iou_ = nhp_.serviceClient<yolact_ros_msgs::SetConfidence>("/yolo_segmentation_ros_node/set_confidence_iou");
+  client_set_roi_            = nhp_.serviceClient<yolact_ros_msgs::SetRegionOfInterest>("/yolo_segmentation_ros_node/set_roi");
 
   if(disable_d405_processing_ == false)
   {
@@ -69,9 +70,16 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
 
 	const auto& goal = act_detection_server_->acceptNewGoal();
 
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
+  }
+
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.7;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
+  srv_set_conf_iou.request.confidence_threshold = 0.75;
+  srv_set_conf_iou.request.confidence_threshold = 0.6;
 
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
@@ -94,7 +102,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
     act_detection_server_->setAborted(detection_result_);
     return;
   }
-  sleep(1.0);
+  sleep(0.1);
   if(disable_motion_ == false)
   {
     if(active_perciever_->performLocalMappingMotion() == false)
@@ -144,7 +152,12 @@ void ActivePercieverInterface::preemptDetectionServerGoalCallback()
 
 bool ActivePercieverInterface::processDetectFruitsServiceCallback(oc2_interface_msgs::DetectFruits::Request &req, oc2_interface_msgs::DetectFruits::Response &res)
 {
-  //callEmptyService(client_start_depth_seg_);
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
+  }
   callEmptyService(client_start_obj_det_);
   if(disable_d405_processing_ == false)
   {
@@ -200,12 +213,17 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
 {
   callEmptyService(client_stop_depth_seg_);
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
   srv_set_conf_iou.request.confidence_threshold = 0.3;
-  
+  srv_set_conf_iou.request.iou = 0.5;
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
   {
-    ROS_ERROR("Failed to call service");
+    ROS_ERROR("Failed to call set confidence service");
+  }
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = true;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
   }
   active_perciever_->startFollowPeduncle(req.fruit_id);
   res.success = true;
@@ -215,13 +233,20 @@ bool ActivePercieverInterface::processStartFollowPeduncleServiceCallback(oc2_int
 bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_interface_msgs::StartFollowFruit::Request &req, oc2_interface_msgs::StartFollowFruit::Response &res)
 {
   //callEmptyService(client_start_depth_seg_);
-  yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.55;
-  srv_set_conf_iou.request.confidence_threshold = 0.5;
+  // yolact_ros_msgs::SetConfidence srv_set_conf_iou;
+  // srv_set_conf_iou.request.confidence_threshold = 0.55;
+  // srv_set_conf_iou.request.iou = 0.5;
   
-  if (!client_set_confidence_iou_.call(srv_set_conf_iou))
+  // if (!client_set_confidence_iou_.call(srv_set_conf_iou))
+  // {
+  //   ROS_ERROR("Failed to call service");
+  // }
+
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
   {
-    ROS_ERROR("Failed to call service");
+    ROS_ERROR("Failed to call set roi service");
   }
 
   callEmptyService(client_start_obj_det_);
@@ -373,8 +398,10 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       stem_msg.direction = utils::fromEigen2GeometryMsgVector3(stem.line_direction);
       stem_msg.origin    = utils::fromEigen2GeometryMsgPoint(stem.line_origin);
       stem_msg.bottom    = utils::fromEigen2GeometryMsgPoint(stem.bottom_point);
-      stem_msg.origin    = utils::fromEigen2GeometryMsgPoint(stem.top_point);
+      stem_msg.top       = utils::fromEigen2GeometryMsgPoint(stem.top_point);
       stem_msg.diameter  = stem.diameter;
+
+      ROS_INFO_STREAM("Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
 
       res.crop.stems.push_back(stem_msg);
     }

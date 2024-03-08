@@ -1,5 +1,6 @@
 active_perciever:
   pose_list:
+    # - init_pose
     # - lc_1
     # - lc_2
     # - lc_3
@@ -11,3 +12,4 @@ active_perciever:
     - online_obs_pose
     - lc_1
     - online_obs_pose
+    # - lc_1

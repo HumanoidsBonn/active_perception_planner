@@ -119,7 +119,7 @@ protected:
   ros::NodeHandle nh_, nhp_;
 
   ros::Timer timer_fruit_follower_, timer_status_publisher_, timer_fruit_estimator_;
-
+  std::mutex mutex_timer_estimator_;
   bool is_move_group_used_ = true;
 
   std::shared_ptr<motion_planning::MotionPlanner> motion_planner_;
@@ -193,7 +193,7 @@ protected:
 
   std::string surface_cloud_topic_;
 
-  bool follow_fruit_enabled_ = false;
+  std::atomic_bool follow_fruit_enabled_ = false;
   bool fruit_est_initialised_ = false;
 
   std::shared_ptr<pointcloud_roi::DetectedRoiFilter> roi_detector_;
@@ -230,7 +230,7 @@ protected:
 
   Eigen::Vector3d fruit_grasping_position_; 
 
-  bool start_peduncle_following_ = false;
+  std::atomic_bool start_peduncle_following_ = false;
 
   bool moveToNextMappingPose(const std::string &next_pose);
 

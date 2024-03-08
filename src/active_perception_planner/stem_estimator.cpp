@@ -1,4 +1,8 @@
 #include "active_perception_planner/stem_estimator.h"
+#include <pcl/sample_consensus/method_types.h>
+#include <pcl/sample_consensus/model_types.h>
+#include <pcl/segmentation/sac_segmentation.h>
+
 using namespace active_perception_planner;
 
 StemEstimator::StemEstimator()
@@ -21,14 +25,28 @@ StemEstimator::~StemEstimator()
 std::vector<Stem> StemEstimator::getStems()
 {
   std::vector<Stem> stems;
-  std::scoped_lock(mutex_stems_);
-  stems = stems_;
+  {
+    std::scoped_lock(mutex_stems_);
+    stems.insert(stems.begin(), stems_.begin(), stems_.end());
+  }
+  ROS_WARN_STREAM("Stem Estimator: getStems No of stems: "<<stems.size());
   return stems;
+}
+
+void StemEstimator::setStems(const std::vector<Stem>& stems)
+{
+  {
+    std::scoped_lock(mutex_stems_);
+    stems_.clear();
+    stems_.insert(stems_.begin(), stems.begin(), stems.end());
+    ROS_WARN_STREAM("END Size of stems: "<<stems.size()<<"\t persistent: "<<stems_.size());
+  }
+  return;
 }
 
 void StemEstimator::semanticInstanceDetectionsCallback(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets)
 {
-  ROS_WARN("StemEstimator: detectionCallback");
+  ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: detectionCallback");
   {
     std::lock_guard<std::mutex> lk(mutex_dets_);
     dets_ = dets;
@@ -40,7 +58,7 @@ void StemEstimator::processingThread()
 {
   while (is_running_ && ros::ok())
   {
-    ROS_WARN_STREAM("StemEstimator: Is running");
+    ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: Is running");
     std::unique_lock<std::mutex> lk(mutex_dets_);
     cv_.wait(lk, [this]{return this->dets_ != nullptr || !this->is_running_;});
     if (!this->is_running_)
@@ -58,17 +76,25 @@ void StemEstimator::processingThread()
 
 void StemEstimator::processStemDetections()
 {
-  std::vector<active_perception_planner::Line2D>  lines = computeLinesUsing2DContours(stem_detections_);
-  std::vector<std::vector<active_perception_planner::Line2D>> grouped_segments = groupApproxCollinearSegments(lines);
-  auto current_stems = combine3DSegmentsFromGrouped2DSegments(grouped_segments);
-  if(stems_.empty())
-  {
-    stems_.insert(stems_.begin(), current_stems.begin(), current_stems.end());
-  }
-  else
-  {
-    mergeNewWithExistingStems(current_stems);
-  }
+  auto t_start = ros::Time::now();
+
+  ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: processStemDetections 1");
+  createStemsFromCurrentDetections(stem_detections_);
+  // std::vector<active_perception_planner::Line2D>  lines = computeLinesUsing2DContours(stem_detections_);
+  // std::vector<std::vector<active_perception_planner::Line2D>> grouped_segments = groupApproxCollinearSegments(lines);
+  // auto current_stems = combine3DSegmentsFromGrouped2DSegments(grouped_segments);
+  // ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: processStemDetections 2");
+  // if(stems_.empty())
+  // {
+  //   ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: processStemDetections 3");
+  //   stems_.insert(stems_.begin(), current_stems.begin(), current_stems.end());
+  // }
+  // else
+  // {
+  //   ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: processStemDetections 4");
+  //   mergeNewWithExistingStems(current_stems);
+  // }
+  ROS_INFO_STREAM_THROTTLE(3.0, "StemEstimator: processStemDetections time taken: "<<(ros::Time::now()-t_start).toSec());
 }
 
 void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> dets)
@@ -76,8 +102,99 @@ void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::Sem
   rgb_image_ = dets->rgb_image.clone();
   depth_image_ = dets->depth_image.clone();
   stem_detections_.clear();
-  stem_detections_.insert(stem_detections_.begin(), dets->stems.begin(), dets->stems.end());
+  for(int i = 0; i < dets->stems.size(); ++i)
+  {
+    auto stem_det = dets->stems[i];
+    if(stem_det.cloud_segment == nullptr || stem_det.cloud_segment->size() < single_stem_min_points_)
+      continue;
+    
+    ROS_INFO_STREAM("SetCurrent Det: det cloud size: "<<stem_det.cloud_segment->size());
+    stem_detections_.push_back(stem_det);
+  }
+  //stem_detections_.insert(stem_detections_.begin(), dets->stems.begin(), dets->stems.end());
   lines_not_init_ = false;
+}
+
+std::vector<Stem> StemEstimator::createStemsFromCurrentDetections(const std::vector<pointcloud_roi::SemanticInstanceDetection>& stem_detections)
+{
+  std::vector<Stem> stems = getStems();
+  ROS_WARN_STREAM("Size of stems: "<<stems.size()<<"\t persistent: "<<stems_.size());
+  for(int i = 0; i < stem_detections.size(); ++i)
+  {
+    auto stem_det = stem_detections[i];
+    if(stem_det.cloud_segment == nullptr or stem_det.cloud_segment->size() < single_stem_min_points_)
+    {
+      ROS_INFO_STREAM("Stem: det cloud seg either nullptr or too small");
+      continue;
+    }
+    active_perception_planner::Stem stem;
+    stem.line_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+    *stem.line_cloud +=  *stem_det.cloud_segment;
+    stem.stem_id = stem_det.instance_id;
+    calculateStemParameters(stem);
+    
+    ROS_INFO_STREAM_THROTTLE(1.0, "Before Check Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
+    
+    if(isStemTooShort(stem.top_point, stem.bottom_point, 0.005f))
+      continue;
+    if(isStemApproximatelyParallelToZAxis(stem.line_direction, 90.0f) == false)
+      continue;
+    
+    ROS_INFO_STREAM_THROTTLE(1.0, "Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
+    size_t j = 0;
+    // Flag to indicate if a match is found
+    bool match_found = false;
+
+    while(j < stems.size() && !match_found)
+    {
+      ROS_INFO_STREAM("Checking for match with stem "<<j<<" out of "<<stems.size());
+      bool is_same_stem = checkIfStemsAreSame(stems[j], stem, 0.3, 0.05);
+      if(is_same_stem)
+      {
+        ROS_INFO_STREAM("match found");
+        auto existing_stem = stems[j];
+        if(existing_stem.line_cloud !=nullptr && stem.line_cloud !=nullptr)
+          *(existing_stem.line_cloud) += *(stem.line_cloud);
+        stems[j] = existing_stem;
+        match_found = true;
+      }
+      j++;
+    }
+    if(!match_found)
+    {
+      ROS_INFO_STREAM("No match found");
+      stem.stem_id = stems.size()+1;
+      stems.push_back(stem);
+    }
+  }
+  setStems(stems);
+  ROS_WARN_STREAM("END Size of stems: "<<stems.size()<<"\t persistent: "<<stems_.size());
+  return stems_;
+}
+
+void StemEstimator::calculateStemParameters(Stem& stem)
+{
+  regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
+  stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
+  findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
+    
+}
+
+void StemEstimator::mergeSegmentsWithinSameDetection(std::vector<Stem>& stems)
+{
+  for (size_t i = 0; i < stems.size(); ++i) 
+  {
+    for (size_t j = i + 1; j < stems.size(); ++j)
+    {
+      bool is_same_stem = checkIfStemsAreSame(stems[i], stems[j], 0.3, 0.05);
+      if(is_same_stem == false)
+        continue;
+      
+      if(stems[i].line_cloud !=nullptr && stems[j].line_cloud !=nullptr)
+          *(stems[i].line_cloud) += *(stems[i].line_cloud);
+
+    }
+  }
 }
 
 bool StemEstimator::checkLineParallelToYAxis(double theta)
@@ -151,7 +268,7 @@ std::vector<active_perception_planner::Line2D> StemEstimator::computeLinesUsing2
   
     cv::RotatedRect rect = cv::minAreaRect(c);
 
-    if (cv::contourArea(c) > 50) 
+    if (cv::contourArea(c) > 30) 
     {
       cv::Point2f box[4];
       rect.points(box);
@@ -174,6 +291,7 @@ std::vector<active_perception_planner::Line2D> StemEstimator::computeLinesUsing2
     }
     idx++;
   }
+  ROS_INFO_STREAM("Box Lines Size: "<<box_lines.size());
   return box_lines;
 }
 
@@ -214,7 +332,7 @@ std::vector<std::vector<active_perception_planner::Line2D>> StemEstimator::group
         groups.push_back(group);
     }
   }
-
+  ROS_INFO_STREAM("Group Size: "<<groups.size());
   return groups;
 }
 
@@ -225,13 +343,34 @@ void StemEstimator::regress3DLine(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& 
   pcl::compute3DCentroid(*cloud, centroid);
   line_origin = centroid.head<3>();
   // Compute covariance matrix
-  Eigen::Matrix3f covariance;
-  pcl::computeCovarianceMatrixNormalized(*cloud, centroid, covariance);
+  // Eigen::Matrix3f covariance;
+  // pcl::computeCovarianceMatrixNormalized(*cloud, centroid, covariance);
     
-  // Perform PCA and obtain eigenvalues and eigenvectors
-  Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
-  Eigen::Matrix3f eigenvectors = solver.eigenvectors();
-  line_direction = eigenvectors.col(0);
+  // // Perform PCA and obtain eigenvalues and eigenvectors
+  // Eigen::SelfAdjointEigenSolver<Eigen::Matrix3f> solver(covariance);
+  // Eigen::Matrix3f eigenvectors = solver.eigenvectors();
+  // line_direction = eigenvectors.col(0);
+
+// RANSAC parameters
+  pcl::ModelCoefficients::Ptr coefficients(new pcl::ModelCoefficients);
+  pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+  pcl::SACSegmentation<pcl::PointXYZRGB> seg;
+  seg.setOptimizeCoefficients(true);
+  seg.setModelType(pcl::SACMODEL_LINE);  // Set model type to line
+  seg.setMethodType(pcl::SAC_RANSAC);   // Use RANSAC algorithm
+  seg.setMaxIterations(1000);
+  seg.setDistanceThreshold(0.02);  // Distance threshold for inliers
+
+  // RANSAC segmentation
+  seg.setInputCloud(cloud);
+  seg.segment(*inliers, *coefficients);
+  line_direction.x() = coefficients->values[3];
+  line_direction.y() = coefficients->values[4];
+  line_direction.z() = coefficients->values[5];
+
+  line_origin.x() = coefficients->values[0];
+  line_origin.y() = coefficients->values[1];
+  line_origin.z() = coefficients->values[2];
 }
 
 std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const std::vector<std::vector<active_perception_planner::Line2D>>& grouped_segments)
@@ -245,21 +384,40 @@ std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const st
     for(const auto& seg: group)
     {
       auto det = stem_detections_[seg.vector_idx];
-      if(det.instance_id == seg.instance_id && det.cloud_segment != nullptr)
+      if(det.cloud_segment == nullptr || stem.line_cloud->size() < single_stem_min_points_)
+      {
+        ROS_INFO_STREAM("Stem: det cloud seg either nullptr or too small");
+        continue;
+      }
+      else
+      {
+        ROS_INFO_STREAM("Stem: det cloud size: "<<stem.line_cloud->size());
+      }
+      if(det.instance_id == seg.instance_id)
       {
         *stem.line_cloud +=  *det.cloud_segment;
       }
     }
-    if(stem.line_cloud !=nullptr)
+    if(stem.line_cloud ==nullptr || stem.line_cloud->size() < merged_stem_min_points_)
     {
-      regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
-      stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
-      findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
-      stems.push_back(stem);
+      ROS_INFO_STREAM("Merged Stem cloud either nullptr or too small");
+      continue;
     }
+    regress3DLine(stem.line_cloud, stem.line_origin, stem.line_direction);
+    stem.diameter = calculateApproximateDiameterAverageMetric(stem.line_cloud, stem.line_origin, stem.line_direction);
+    findTopAndBottomPoints(stem.line_cloud, stem.top_point, stem.bottom_point);
+    ROS_INFO_STREAM_THROTTLE(1.0, "Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
+    if(isStemTooShort(stem.top_point, stem.bottom_point, 0.03f))
+      continue;
+    if(isStemApproximatelyParallelToZAxis(stem.line_direction, 30.0f) == false)
+      continue;
+    
+    ROS_INFO_STREAM_THROTTLE(1.0, "Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
+    stems.push_back(stem);
+    
   }
   stems.erase(std::remove_if(stems.begin(), stems.end(), [](const Stem& s) {
-        return s.line_cloud == nullptr;
+        return (s.line_cloud == nullptr || s.line_cloud->empty());
     }), stems.end());
 
   return stems;
@@ -267,6 +425,7 @@ std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const st
 
 void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems)
 {
+
   std::unordered_set<int>new_stems_indices_already_merged; 
   for(int i = 0; i < stems_.size(); ++i)
   {
@@ -278,14 +437,14 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
         continue;
       }
       //ROS_INFO("1");
-      bool is_same_stem = checkIfStemsAreSame(stems_[i], new_stems[j], 0.1, 0.1);
+      bool is_same_stem = checkIfStemsAreSame(stems_[i], new_stems[j], 0.3, 0.05);
       //ROS_INFO("2");
       if(is_same_stem)
       {
         found_similar_stem = true;
         //ROS_INFO("3");
-        if(new_stems[i].line_cloud !=nullptr && stems_[i].line_cloud !=nullptr)
-          *(stems_[i].line_cloud) += *(new_stems[i].line_cloud);
+        if(new_stems[j].line_cloud !=nullptr && stems_[i].line_cloud !=nullptr)
+          *(stems_[i].line_cloud) += *(new_stems[j].line_cloud);
         else
           continue;
         //ROS_INFO("4");
@@ -303,19 +462,29 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
     }
   }
   stems_.erase(std::remove_if(stems_.begin(), stems_.end(), [](const Stem& s) {
-        return s.line_cloud == nullptr;
+        return (s.line_cloud == nullptr || s.line_cloud->empty());
     }), stems_.end());
 
-  for (int i = 0; i < stems_.size(); ++i)
+  auto stems_temp = stems_;
+  stems_.clear();
+  for (int i = 0; i < stems_temp.size(); ++i)
   {
-    if(stems_[i].line_cloud!=nullptr)
-    {
+    if(stems_temp[i].line_cloud == nullptr || stems_temp[i].line_cloud->size() < merged_stem_min_points_)
+      continue;
       //ROS_INFO("5");
-      regress3DLine(stems_[i].line_cloud, stems_[i].line_origin, stems_[i].line_direction);
-      //ROS_INFO("6");
-      findTopAndBottomPoints(stems_[i].line_cloud, stems_[i].top_point, stems_[i].bottom_point);
-      //ROS_INFO("7");
-    }
+    regress3DLine(stems_temp[i].line_cloud, stems_temp[i].line_origin, stems_temp[i].line_direction);
+    //ROS_INFO("6");
+    findTopAndBottomPoints(stems_temp[i].line_cloud, stems_[i].top_point, stems_temp[i].bottom_point);
+
+    if(isStemTooShort(stems_temp[i].top_point, stems_temp[i].bottom_point, 0.05))
+      continue;
+    if(isStemApproximatelyParallelToZAxis(stems_temp[i].line_direction, 15.0f) == false)
+      continue;
+    
+    ROS_INFO_STREAM_THROTTLE(1.0, "Stem id: "<<stems_temp[i].stem_id<<"\t bottom: "<<stems_temp[i].bottom_point.transpose()<<"\t top: "<<stems_temp[i].top_point.transpose()<<"\t dir: "<<stems_temp[i].line_direction.transpose());
+
+    stems_.push_back(stems_temp[i]);
+    //ROS_INFO("7")
   }
 }
 
@@ -354,17 +523,35 @@ float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointC
 void StemEstimator::findTopAndBottomPoints(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& top_point, Eigen::Vector3f& bottom_point) 
 {
   //ROS_INFO_STREAM("findTopAndBottomPoints 1"<<cloud->points.size());
-  auto minZ = std::min_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
-      return p1.z < p2.z;
+
+  std::sort(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& a, const pcl::PointXYZRGB& b) {
+        return a.z < b.z;
   });
-  //ROS_INFO("findTopAndBottomPoints 2");
-  auto maxZ = std::max_element(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& p1, const pcl::PointXYZRGB& p2) {
-      return p1.z > p2.z;
-  });
-  //ROS_INFO("findTopAndBottomPoints 3");
-  if(maxZ != cloud->end())
-    top_point = maxZ->getVector3fMap();
-  if(minZ != cloud->end())
-    bottom_point = maxZ->getVector3fMap();
+  bottom_point = cloud->front().getVector3fMap();
+  top_point    = cloud->back().getVector3fMap();
+  
   //ROS_INFO("findTopAndBottomPoints 4");
 }
+
+bool StemEstimator::isStemTooShort(const Eigen::Vector3f& top_point, const Eigen::Vector3f& bottom_point, float min_height) 
+{
+  auto stem_height = fabs(top_point.z() - bottom_point.z());
+  return (stem_height < min_height);
+}
+
+bool StemEstimator::isStemApproximatelyParallelToZAxis(const Eigen::Vector3f& line_direction, float threshold_angle_degrees) 
+{
+    // Define unit vector along the z-axis
+    Eigen::Vector3f z_axis = Eigen::Vector3f::UnitZ();
+
+    // Compute the cosine of the angle between the line direction and the z-axis
+    float cosine_angle = line_direction.dot(z_axis) / (line_direction.norm() * z_axis.norm());
+
+    // Compute the angle in degrees
+    float angle_degrees = std::acos(cosine_angle) * 180.0f / M_PI;
+
+    // Check if the angle is within the threshold
+    return angle_degrees < threshold_angle_degrees;
+}
+
+
