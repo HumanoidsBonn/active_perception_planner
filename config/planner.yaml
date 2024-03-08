@@ -8,5 +8,6 @@ active_perciever:
     # - lc_6
     # - lc_7
     # - lc_9
-    - init_pose
+    - online_obs_pose
     - lc_1
+    - online_obs_pose
