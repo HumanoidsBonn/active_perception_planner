@@ -70,6 +70,13 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
 
 	const auto& goal = act_detection_server_->acceptNewGoal();
 
+  yolact_ros_msgs::SetRegionOfInterest srv_set_roi;
+  srv_set_roi.request.enable = false;
+  if(client_set_roi_.call(srv_set_roi))
+  {
+    ROS_ERROR("Failed to call set roi service");
+  }
+
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
   srv_set_conf_iou.request.confidence_threshold = 0.75;
   srv_set_conf_iou.request.confidence_threshold = 0.6;
@@ -391,8 +398,10 @@ oc2_interface_msgs::DetectFruitsResult ActivePercieverInterface::getCropAsAction
       stem_msg.direction = utils::fromEigen2GeometryMsgVector3(stem.line_direction);
       stem_msg.origin    = utils::fromEigen2GeometryMsgPoint(stem.line_origin);
       stem_msg.bottom    = utils::fromEigen2GeometryMsgPoint(stem.bottom_point);
-      stem_msg.origin    = utils::fromEigen2GeometryMsgPoint(stem.top_point);
+      stem_msg.top       = utils::fromEigen2GeometryMsgPoint(stem.top_point);
       stem_msg.diameter  = stem.diameter;
+
+      ROS_INFO_STREAM("Stem id: "<<stem.stem_id<<"\t bottom: "<<stem.bottom_point.transpose()<<"\t top: "<<stem.top_point.transpose()<<"\t dir: "<<stem.line_direction.transpose());
 
       res.crop.stems.push_back(stem_msg);
     }

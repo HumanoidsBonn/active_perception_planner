@@ -190,10 +190,11 @@ bool ActivePerciever::performLocalMappingMotion()
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
-    sleep(0.5);
+    sleep(0.2);
     processDetectionsAtSensorPose();
 
   }
+  sleep(0.5);
   return true; //getActivePercieverStatus();
 }
 
@@ -221,7 +222,7 @@ void ActivePerciever::processDetectionsAtSensorPose()
   }
   else
   {
-    //ROS_WARN_STREAM("Tracked Detections NOT available");
+    ROS_WARN_STREAM("Tracked Detections NOT available");
   }
 }
 
