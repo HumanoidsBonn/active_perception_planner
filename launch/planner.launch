@@ -20,7 +20,8 @@
 
 
 <node name="active_perciever" pkg="active_perception_planner" type="active_perciever" output="screen"  launch-prefix="$(arg launch_prefix)">
-    <param name="use_fixed_pose"                value="true" />
+    <param name="use_fixed_pose"                value="false" />
+    <param name="ofe/peduncle/buffer_size"      value="3" />
     <param name="use_exact_sync"                value="true" />
     <param name="disable_motion"                value="false" />
     <param name="wait_time"                     value="0.0" />

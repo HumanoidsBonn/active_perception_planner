@@ -10,26 +10,36 @@ OnlineFruitEstimator::OnlineFruitEstimator(ros::NodeHandle& nhp, std::shared_ptr
 tf_buffer_(ros::Duration(30)),
 tf_listener_(tf_buffer_)
 {
+  is_peduncle_available_ = false;
   if(orig_est_interested_fruit_.has_peduncle)
   {
-    is_peduncle_available_ = true;
-    best_peduncle_ = orig_est_interested_fruit_.peduncle;
-    best_peduncle_.associated_fruit_pose = orig_est_interested_fruit_.fruit.fruit_pose;
-
-    pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
-    sor.setInputCloud(best_peduncle_.peduncle_cloud);
-    sor.setMeanK(30); // Set the number of neighbors to use for mean distance estimation
-    sor.setStddevMulThresh(1.0); // Set the standard deviation multiplier threshold
-    sor.filter(*best_peduncle_.peduncle_cloud);
+    if(orig_est_interested_fruit_.peduncle.peduncle_cloud != nullptr && orig_est_interested_fruit_.peduncle.peduncle_cloud->empty() == false)
+    {
+      best_peduncle_ = orig_est_interested_fruit_.peduncle;
+      best_peduncle_.associated_fruit_pose = orig_est_interested_fruit_.fruit.fruit_pose;
+      pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
+      sor.setInputCloud(best_peduncle_.peduncle_cloud);
+      sor.setMeanK(30); // Set the number of neighbors to use for mean distance estimation
+      sor.setStddevMulThresh(1.0); // Set the standard deviation multiplier threshold
+      sor.filter(*best_peduncle_.peduncle_cloud);
+      if(best_peduncle_.peduncle_cloud->empty() == false)
+      {
+        is_peduncle_available_ = true;
+        is_old_peduncle_available_ = true;
+      }
+    }
   }
+  if(is_peduncle_available_ == false)
+    orig_est_interested_fruit_.has_peduncle = false;
+
   roi_detector_->enableContinuousDetections(false);
 
-  timer_tf_   = nhp_.createTimer(ros::Duration(0.1), &OnlineFruitEstimator::processTFTimerCallback, this);
+  timer_tf_   = nhp_.createTimer(ros::Duration(0.4), &OnlineFruitEstimator::processTFTimerCallback, this);
   timer_tf_.start();
   int buffer_size = 5;
-  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 5);
+  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 3);
 
-  peduncle_buffer_ = std::make_unique<PointCloudBuffer<pcl::PointXYZRGB>>(5, 0.5);
+  peduncle_buffer_ = std::make_unique<PointCloudBuffer<pcl::PointXYZRGB>>(buffer_size, 0.5);
 
   pub_peduncle_fruitpoint_  = nhp_.advertise<geometry_msgs::Point>("peduncle_fruitpoint", 1, false);
   pub_peduncle_stempoint_   = nhp_.advertise<geometry_msgs::Point>("peduncle_stempoint", 1, false);
@@ -39,6 +49,7 @@ tf_listener_(tf_buffer_)
 
 bool OnlineFruitEstimator::computeFruitEstimate()
 {
+  is_peduncle_available_ = false;
   bool success = false;
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = nullptr;
   roi_detector_->enableTrackedDetectionCallback(true);
@@ -88,12 +99,12 @@ bool OnlineFruitEstimator::computeFruitEstimate()
 
     if(se_detector_->completeFruitShape(surface_cloud, fruit_with_peduncle.fruit, true))
     {
-      ROS_INFO_STREAM_THROTTLE(1.0, "Variance New: "<<fruit_with_peduncle.fruit.variance<<"\t Variance Orig: "<<orig_est_interested_fruit_.fruit.variance);
+      ROS_INFO_STREAM_THROTTLE(1.0, "Variance New: "<<fruit_with_peduncle.fruit.variance.transpose()<<"\t Variance Orig: "<<orig_est_interested_fruit_.fruit.variance.transpose());
       Eigen::Vector3d c1, c2, c3;
       tf::pointMsgToEigen(curr_est_interested_fruit_.fruit.fruit_pose.position, c1);
       tf::pointMsgToEigen(fruit_with_peduncle.fruit.fruit_pose.position, c2);
       tf::pointMsgToEigen(orig_est_interested_fruit_.fruit.fruit_pose.position, c3);
-      ROS_INFO_STREAM("New INST Fruit Centre: "<<c2.transpose()<<"\tCurr Filt Fruit Centre: "<<c1.transpose()<< "\t Orig Fruit Centre: "<<c3.transpose());
+      ROS_INFO_STREAM_THROTTLE(1.0, "New INST Fruit Centre: "<<c2.transpose()<<"\tCurr Filt Fruit Centre: "<<c1.transpose()<< "\t Orig Fruit Centre: "<<c3.transpose());
       Eigen::Vector3d error_in_centres = utils::computeErrorInCentres(curr_est_interested_fruit_.fruit.fruit_pose.position, fruit_with_peduncle.fruit.fruit_pose.position);
       double center_dist_wrt_orig = (c1-c3).norm();
       ROS_INFO_STREAM_THROTTLE(1.0, "Error in centres: "<<error_in_centres.transpose());
@@ -179,7 +190,7 @@ bool OnlineFruitEstimator::computeFruitEstimate()
     nearest_fruit.fruit.fruit_size = orig_est_interested_fruit_.fruit.fruit_size;
     Peduncle selected_peduncle;
     bool use_old_peduncle = false;
-    if(peduncle_id > -1)
+    if(peduncle_id > -1 && detections->peduncles[peduncle_id].cloud_segment != nullptr)
     {
       ROS_INFO_STREAM_THROTTLE(1.0, "Peduncle associated with fruit is present");
       num_peduncle_detections_missed_ = 0;
@@ -192,7 +203,7 @@ bool OnlineFruitEstimator::computeFruitEstimate()
         ROS_INFO_STREAM("HURRAH New Peduncle good enough: "<<associated_peduncle.peduncle_cloud->size());
         selected_peduncle = associated_peduncle;
         //transformPedunclePointCloud(selected_peduncle.peduncle_cloud, nearest_fruit.fruit.fruit_pose.position, inst_fruit_pose.position);
-        //setBestPeduncle(selected_peduncle);
+        setBestPeduncle(selected_peduncle);
         selected_peduncle.associated_fruit_pose = nearest_fruit.fruit.fruit_pose;
         use_old_peduncle = false;
         is_peduncle_available_ = true;
@@ -200,14 +211,14 @@ bool OnlineFruitEstimator::computeFruitEstimate()
       else
       {
         ROS_WARN_STREAM_THROTTLE(1.0, "New Peduncle not good enough");
-        if(is_peduncle_available_)
+        if(is_old_peduncle_available_)
           use_old_peduncle = true;
       }
     }
     else
     {
       ROS_WARN_STREAM_THROTTLE(1.0, "Cannot find peduncle in current detection");
-      if(is_peduncle_available_)
+      if(is_old_peduncle_available_)
         use_old_peduncle = true;
     }
     if(use_old_peduncle)
@@ -216,6 +227,7 @@ bool OnlineFruitEstimator::computeFruitEstimate()
       selected_peduncle = best_peduncle_;
       //transformPedunclePointCloud(selected_peduncle.peduncle_cloud, nearest_fruit.fruit.fruit_pose.position, selected_peduncle.associated_fruit_pose.position);
       selected_peduncle.associated_fruit_pose = nearest_fruit.fruit.fruit_pose;
+      is_peduncle_available_ = true;
     }
     if(is_peduncle_available_)
     {
@@ -251,7 +263,7 @@ int OnlineFruitEstimator::findPedunclebyAssociatedFruitID(const std::vector<poin
   {
     if(peduncles[i].associated_instance == fruit_id)
     {
-      if(peduncles[i].cloud_segment !=nullptr && peduncles[i].cloud_segment->size() > 0)
+      if(peduncles[i].cloud_segment !=nullptr && peduncles[i].cloud_segment->empty() == false)
         return i;
     }
   }
@@ -432,6 +444,11 @@ void OnlineFruitEstimator::publishDebug()
 
 bool OnlineFruitEstimator::IsNewPeduncleGoodEnough(const Peduncle& pnew, const Peduncle& pold, double min_points)
 {
+  if(pnew.peduncle_cloud == nullptr || pnew.peduncle_cloud->empty())
+    return false;
+  if(pold.peduncle_cloud == nullptr || pold.peduncle_cloud->empty())
+    return true;
+
   if(is_peduncle_available_ == false)
     return true;
   if(pnew.peduncle_cloud->size() > 0.5* pold.peduncle_cloud->size())
@@ -567,9 +584,11 @@ typename pcl::PointCloud<PointT>::Ptr OnlineFruitEstimator::filterCloud(const ty
 
 bool OnlineFruitEstimator::computePeduncleEstimate()
 {
+  ROS_INFO_STREAM_THROTTLE(0.1, "computePeduncleEstimate");
   Eigen::Vector3d cutter_ee_pos;
   if(is_peduncle_computed_)
   {
+    ROS_INFO_STREAM_THROTTLE(0.1, "Before Cutter");
     cutter_ee_pos = getCutterEEPosition();
     if(isCutterOccludingPeduncle(cutter_ee_pos, computed_peduncle_, 0.2))
     {
@@ -577,17 +596,31 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
       return false;
     }
   }
+  //ROS_INFO_STREAM_THROTTLE(0.1, "After Cutter");
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = nullptr;
   roi_detector_->enableContinuousDetections(true);
+  //ROS_INFO_STREAM_THROTTLE(0.1, "After ENABLE");
   auto t_start = ros::Time::now();
+  //ROS_INFO_STREAM_THROTTLE(0.1, "BEFORE READ");
   do
   { //tracked_dets_available = roi_detector_->isTrackedDetectionAvailable();
     detections = roi_detector_->readSemanticInstanceDetections();
     sleep(0.01);
   }
   while(detections == nullptr && (ros::Time::now()-t_start).toSec() < 0.05);
+  ROS_INFO_STREAM_THROTTLE(0.1, "AFTER READ");
   bool peduncle_found = false;
   int peduncle_det_idx = -1;
+  if(detections == nullptr)
+  {
+    ROS_WARN_STREAM_THROTTLE(0.1, "Detections nullptr");
+    return false;
+  }
+  if(detections->peduncles.empty())
+  {
+    ROS_WARN_STREAM_THROTTLE(0.1, "Peduncle detections empty");
+    return false;
+  }
   for(int i = 0; i < detections->peduncles.size(); ++i)
   {
     if(confident_id_available_ && detections->peduncles[i].instance_id == fruit_id_of_confident_detection_)
@@ -611,25 +644,28 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
   }
   if(!peduncle_found)
   {
-    ROS_WARN_STREAM_THROTTLE(2.0, "No peduncle found in current detections");
+    ROS_WARN_STREAM_THROTTLE(0.1, "No peduncle found in current detections");
     return false;
   }
-
+  ROS_INFO_STREAM_THROTTLE(0.1, "PEDUNCLE FOUND++++++++++++++++++++++++++++++++");
   Peduncle peduncle = convert(detections->peduncles[peduncle_det_idx]);
 
-  peduncle_buffer_->addFrame(peduncle.peduncle_cloud, detections->depth_msg->header.stamp);
+  peduncle_buffer_->addFrame(peduncle.peduncle_cloud, ros::Time::now());
 
   peduncle.peduncle_cloud = peduncle_buffer_->getMergedSmoothedFrame();
 
   if(peduncle.peduncle_cloud == nullptr || peduncle.peduncle_cloud->empty())
+  {
+    ROS_INFO_STREAM_THROTTLE(0.1, "FOUND PEDUNCLE EMPTY++++++++++++++++++++++++++++++++");
     return false;
-  
+  }
   calculatePeduncleEndpoints(peduncle);
   DetectedFruitWithPeduncle fruit_with_peduncle(curr_est_interested_fruit_.fruit, peduncle);
   fruit_with_peduncle.has_peduncle = true;
   computed_peduncle_ = peduncle;
   is_peduncle_computed_ = true;
   setCurrentEstimateOfTheInterestedFruit(fruit_with_peduncle);
+  ROS_INFO_STREAM_THROTTLE(0.1, "UPDATED FRUIT WITH PEDUNCLE++++++++++++++++++++++++++++++++");
   return true;
 }
 
@@ -637,7 +673,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
 {
   if(peduncle.cloud_segment == nullptr || peduncle.cloud_segment->empty())
   {
-    ROS_WARN_THROTTLE(2.0, "Peduncle cloud empty");
+    ROS_WARN_THROTTLE(0.1, "Peduncle cloud empty");
     return false;
   }
   sensor_msgs::PointCloud2 ped_msg;
@@ -653,10 +689,16 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
   Eigen::Vector3d bbox_min, bbox_max;
 
   bbox_min = centre - dim ;
-  bbox_min.z() = bbox_min.z() + 1.5*dim.z();
+  bbox_min.x() = bbox_min.x() - 0.02;
+  bbox_min.y() = bbox_min.y() - 0.02;
+
+  bbox_min.z() = bbox_min.z() + 1.0*dim.z()-0.02;
 
   bbox_max = centre + dim;
-  bbox_max.z() = bbox_max.z() + 1.5*dim.z();
+  bbox_max.x() = bbox_max.x() + 0.02;
+  bbox_max.y() = bbox_max.y() + 0.03;
+
+  bbox_max.z() = bbox_max.z() + 1.0*dim.z() + 0.02;
 
   Eigen::Vector4f centroid;
   pcl::compute3DCentroid(*(peduncle.cloud_segment), centroid);
@@ -665,7 +707,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
   
   if(ped_centroid.x() < bbox_min.x() || ped_centroid.x() > bbox_max.x() || ped_centroid.y() < bbox_min.y() || ped_centroid.y() > bbox_max.y() || ped_centroid.z() < bbox_min.z() || ped_centroid.z() > bbox_max.z())
   {
-    ROS_WARN_STREAM_THROTTLE(2.0, "Peduncle outside top bbox: centroid: "<<ped_centroid<<"\t bbox_min: "<<bbox_min<<"\t bbox_max: "<<bbox_max);
+    ROS_WARN_STREAM_THROTTLE(0.1, "Peduncle outside top bbox: centroid: "<<ped_centroid.transpose()<<"\t bbox_min: "<<bbox_min.transpose()<<"\t bbox_max: "<<bbox_max.transpose());
     return false;
   }
   return true;
@@ -717,12 +759,12 @@ bool OnlineFruitEstimator::isCutterOccludingPeduncle(const Eigen::Vector3d& cutt
 
   if(cutter_ee_pos.x() < min_coords.x() || cutter_ee_pos.x() > max_coords.x() || cutter_ee_pos.y() < min_coords.y() || cutter_ee_pos.y() > max_coords.y() || cutter_ee_pos.z() < min_coords.z() || cutter_ee_pos.z() > max_coords.z())
   {
-    ROS_INFO_STREAM_THROTTLE(2.0, "Cutter pos: "<<cutter_ee_pos.transpose()<<"\t bbox_min: "<<min_coords<<"\t bbox_max: "<<max_coords.transpose());
-    return true;
+    ROS_INFO_STREAM_THROTTLE(0.1, "Cutter pos: "<<cutter_ee_pos.transpose()<<"\t bbox_min: "<<min_coords.transpose()<<"\t bbox_max: "<<max_coords.transpose());
+    return false;
   }
   else
   {
-    ROS_WARN_STREAM_THROTTLE(2.0, "Cutter occluding peduncle: "<<cutter_ee_pos.transpose()<<"\t bbox_min: "<<min_coords.transpose()<<"\t bbox_max: "<<max_coords.transpose());
-    return false;
+    ROS_WARN_STREAM_THROTTLE(0.1, "Cutter occluding peduncle: "<<cutter_ee_pos.transpose()<<"\t bbox_min: "<<min_coords.transpose()<<"\t bbox_max: "<<max_coords.transpose());
+    return true;
   }
 }

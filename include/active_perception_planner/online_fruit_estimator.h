@@ -71,7 +71,7 @@ public:
     // Check if all frames in the buffer are too old
     if (all_frames_old) 
     {
-      ROS_WARN_THROTTLE(2, "All frames in buffer are too old, returning nullptr.");
+      ROS_WARN_THROTTLE(0.1, "All frames in buffer are too old, returning nullptr.");
       return nullptr;
     }
     // Merge all valid frames in the buffer
@@ -159,6 +159,8 @@ class OnlineFruitEstimator
   bool is_peduncle_det_init_ = false;
   bool is_new_estimate_available_ = false;
   bool is_new_peduncle_estimate_available_ = true;
+
+  bool is_old_peduncle_available_ = false;
 
   bool is_peduncle_computed_ = false;
   Peduncle computed_peduncle_;

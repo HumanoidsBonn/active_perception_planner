@@ -86,14 +86,6 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
     ROS_ERROR("Failed to call service");
   }
 
-  callEmptyService(client_start_obj_det_);
-  callEmptyService(client_start_depth_seg_);
-  if(disable_d405_processing_ == false)
-  {
-    //callEmptyService(client_start_depth_seg_d405_);
-    callEmptyService(client_start_obj_det_d405_);
-  }
-  
   if(active_perciever_->clearSceneMap() == false)
   {
     ROS_ERROR("Could not clear VPP Scene Map");
@@ -102,6 +94,22 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
     act_detection_server_->setAborted(detection_result_);
     return;
   }
+  if(active_perciever_->moveToInitialMappingPose() == false)
+  {
+    ROS_ERROR("Could not move to initial pose");
+    detection_result_.success = false;
+    detection_result_.message = "Could not move to initial pose";
+    act_detection_server_->setAborted(detection_result_);
+    return;
+  }
+  callEmptyService(client_start_obj_det_);
+  callEmptyService(client_start_depth_seg_);
+  if(disable_d405_processing_ == false)
+  {
+    //callEmptyService(client_start_depth_seg_d405_);
+    callEmptyService(client_start_obj_det_d405_);
+  }
+  
   sleep(0.1);
   if(disable_motion_ == false)
   {
@@ -266,6 +274,14 @@ bool ActivePercieverInterface::processStartFollowFruitsServiceCallback(oc2_inter
 bool ActivePercieverInterface::processStopFollowFruitsServiceCallback(oc2_interface_msgs::StopFollowFruit::Request &req, oc2_interface_msgs::StopFollowFruit::Response &res)
 {
   active_perciever_->stopFollowFruit();
+  sleep(1.0);
+  active_perciever_ = std::make_shared<active_perception_planner::ActivePerciever>(nhp_, std::string("head"), std::string("head_link_base"), std::string("head_link_eef"), disable_motion_);
+  std::string config_package;
+  nhp_.param<std::string>("config_package", config_package, "active_perception_planner");
+  config_package_path_ = ros::package::getPath(config_package);
+
+  if(disable_motion_ == false)
+    loadJointStatesasRememberedJointValues();
   //callEmptyService(client_stop_depth_seg_);
   callEmptyService(client_stop_obj_det_);
   if(disable_d405_processing_ == false)

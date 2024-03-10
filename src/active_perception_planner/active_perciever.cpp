@@ -9,7 +9,7 @@
 #include "yaml-cpp/yaml.h"
 #include <tf2_eigen/tf2_eigen.h>
 #include <geometry_msgs/TransformStamped.h>
-
+#include <std_srvs/Empty.h>
 using namespace active_perception_planner;
 using namespace utils;
 
@@ -33,6 +33,11 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
   nhp_.param<std::vector<double>>("fixed_view_position", fixed_view_position_, {0.7, 0.3, 0.84});
   nhp_.param<bool>("use_fixed_pose", use_fixed_pose_, true);
+
+  client_start_gsm_node_    = nhp_.serviceClient<std_srvs::Empty>("/gsm_node/enable_gsm_srv");
+  client_stop_gsm_node_     = nhp_.serviceClient<std_srvs::Empty>("/gsm_node/disable_gsm_srv");
+
+  pub_control_gsm_          = nhp_.advertise<std_msgs::Bool>("/gsm_node/control", 1);
 
   vp_origin_ = Eigen::Map<Eigen::Vector3d, Eigen::Unaligned>(fixed_view_position_.data(), fixed_view_position_.size());
   view_positions_.push_back(vp_origin_);
@@ -117,8 +122,8 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   get_instanceclouds_client_ = nh_.serviceClient<vpp_msgs::GetListInstancePointclouds>("/gsm_node/get_list_instance_pointclouds");
   get_scenecloud_client_ = nh_.serviceClient<vpp_msgs::GetScenePointcloud>("/gsm_node/get_scene_pointcloud");
 
-  timer_fruit_follower_   = nh_.createTimer(ros::Duration(0.1), &ActivePerciever::followFruitCallback, this);
-  timer_status_publisher_ = nh_.createTimer(ros::Duration(0.2), &ActivePerciever::publishStatusTimerCallback, this);
+  timer_fruit_follower_   = nh_.createTimer(ros::Duration(0.4), &ActivePerciever::followFruitCallback, this);
+  timer_status_publisher_ = nh_.createTimer(ros::Duration(0.5), &ActivePerciever::publishStatusTimerCallback, this);
   timer_fruit_estimator_  = nh_.createTimer(ros::Duration(0.1), &ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback, this);
 
   sub_surface_cloud_ =  nh_.subscribe(surface_cloud_topic_, 1, &ActivePerciever::receiveSurfacePointCloudCallback, this);
@@ -176,25 +181,29 @@ bool ActivePerciever::performLocalMappingMotion()
     setActivePercieverStatus(ERROR_MANIP_ARMS_NOT_STOWED);
     return false; //getActivePercieverStatus();
   }
-
-  // if(moveToInitialMappingPose() == false)
-  // {
-  //   setActivePercieverStatus(ERROR_MOVE_TO_INIT_MAPPING_POSE);
-  //   return false; //getActivePercieverStatus();
-  // }
-
+  callEmptyService(client_start_gsm_node_);
+  processDetectionsAtSensorPose();
   for(const auto& next_pose: mapping_poses_list_)
   {
+    //callEmptyService(client_stop_gsm_node_);
+    // std_msgs::Bool control;
+    // control.data = false;
+    // pub_control_gsm_.publish(control);
+    sleep(0.1);
     if(moveToNextMappingPose(next_pose)== false)
     {
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
-    sleep(0.2);
+    
+    sleep(0.5);
     processDetectionsAtSensorPose();
 
   }
   sleep(0.5);
+  // std_msgs::Bool control;
+  // control.data = false;
+  // pub_control_gsm_.publish(control);
   return true; //getActivePercieverStatus();
 }
 
@@ -402,7 +411,9 @@ bool ActivePerciever::moveToInitialMappingPose()
 {
   if(is_move_group_used_ == false)
     motion_planner_->clearMotionPlanRequestConstraints();
-  return motion_planner_->moveNamedTarget("transport_pose", planner_id_);
+  
+  auto init_pose = mapping_poses_list_[0];
+  return motion_planner_->moveNamedTarget(init_pose, planner_id_);
 
 }
 
@@ -411,11 +422,11 @@ bool ActivePerciever::moveToNextMappingPose(const std::string& next_pose)
   if(is_move_group_used_ == false)
     motion_planner_->clearMotionPlanRequestConstraints();
   
-  ROS_WARN_STREAM("mapping_motion_type_"<<mapping_motion_type_);
+  ROS_INFO_STREAM("mapping_motion_type_"<<mapping_motion_type_);
   bool success = motion_planner_->moveNamedTarget(next_pose, mapping_motion_type_);
   if(success == false && mapping_motion_type_ == "LIN" && attempt_with_ptp_on_failure_ == true)
   {
-    ROS_WARN_STREAM("mapping_motion_type_"<<planner_id_);
+    ROS_WARN_STREAM("Failure retrying mapping_motion_type_"<<planner_id_);
     return motion_planner_->moveNamedTarget(next_pose, planner_id_);
   }
   return success;
@@ -568,7 +579,7 @@ bool ActivePerciever::stopFollowFruit()
     timer_fruit_follower_.stop();
   if(timer_fruit_estimator_.hasStarted() == true)  
     timer_fruit_estimator_.stop();
-
+  sleep(0.5);
   follow_fruit_enabled_ = false;
   interested_fruit_ = superellipsoid::DetectedFruit();
   fruit_est_initialised_ = false;
@@ -601,13 +612,18 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
     ROS_ERROR_STREAM_THROTTLE(2.0, "Current OTG Target not reached"<<pose_tracker_->getOTGStatus().status);
     return;
   }
+  if(fruit_est_initialised_ == false)
+  {
+    ROS_WARN_STREAM_THROTTLE(2.0, "Fruit estimate not initialized");
+    return;
+  }
   bool initial_motion_success = false;
   bool compute_view_pose_success = false;
   bool perform_motion = false;
   geometry_msgs::PoseStamped view_pose_stamped;
   if(use_fixed_pose_)
   {
-    ROS_INFO_THROTTLE(2.0, "+++++++++++++++++++++++++++++++++++++++++Entered use_fixed_pose++++++++++++++++++++++++++++++++++++++++++");
+    ROS_INFO_STREAM_THROTTLE(2.0, "+++++++++++++++++++++++++++++++++++++++++Entered use_fixed_pose: "<< orig_est_interested_fruit_.fruit.fruit_pose.position);
     compute_view_pose_success = computeInitialFixedViewPose(view_pose_stamped, orig_est_interested_fruit_.fruit.fruit_pose.position);
     if(compute_view_pose_success == false)
     {
@@ -624,13 +640,13 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   else
   {
     ROS_INFO_THROTTLE(2.0, "VARIABLE POSE*************************************************Entered variable pose***************************************************");
-    geometry_msgs::Point vp;
-    if(computeViewpointOriginForZPlane(vp, orig_est_interested_fruit_.fruit.fruit_pose.position, orig_est_interested_fruit_.fruit.fruit_size, orig_est_interested_fruit_.fruit.observed_shape_centroid, 0.95, 0.25) == false)
-    {
-      ROS_WARN_STREAM_THROTTLE(2.0, "Error computing vp origin");
-      return;
-    }
-    compute_view_pose_success = computeViewPoseForZPlane(view_pose_stamped, orig_est_interested_fruit_.fruit.fruit_pose.position, vp);
+    // geometry_msgs::Point vp;
+    // if(computeViewpointOriginForZPlane(vp, orig_est_interested_fruit_.fruit.fruit_pose.position, orig_est_interested_fruit_.fruit.fruit_size, orig_est_interested_fruit_.fruit.observed_shape_centroid, 0.95, 0.25) == false)
+    // {
+    //   ROS_WARN_STREAM_THROTTLE(2.0, "Error computing vp origin");
+    //   return;
+    // }
+    compute_view_pose_success = computeViewPose(view_pose_stamped, orig_est_interested_fruit_.fruit.fruit_pose.position, orig_est_interested_fruit_.fruit.fruit_size, 0.15, 0.22);
     if(compute_view_pose_success == false)
     {
       ROS_WARN_STREAM_THROTTLE(2.0, "Error computing viewpose");
@@ -647,7 +663,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
   if(compute_view_pose_success && perform_motion)
   {
     ROS_INFO_STREAM_THROTTLE(2.0, "VARIABLE POSE: Send to OTG");
-    //pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
+    pose_tracker_->updateOTGGoalPose(view_pose_stamped, "zed2i_camera_center");
     initial_motion_done_ = true;
     curr_view_pose_ = view_pose_stamped;
   }
@@ -657,19 +673,16 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
 {
   if(follow_fruit_enabled_.load() == false)
     return;
-  
+  std::scoped_lock lk(mutex_timer_estimator_);
   if(pose_tracker_->isOTGRunning() == false)
   {
-    ROS_INFO_STREAM_THROTTLE(1.0, "OTG not running. Hence compute fruit estimate");
+    ROS_INFO_STREAM_THROTTLE(3.0, "OTG not running. Hence compute fruit estimate");
     bool is_new_estimate_available = false;
     if(start_peduncle_following_.load() == false)
     {
       ROS_INFO_STREAM_THROTTLE(1.0, "Following Fruit...");
       {
-        if(follow_fruit_enabled_.load() == false)
-          return;
         {
-          std::scoped_lock lk(mutex_timer_estimator_);
           if(online_fruit_estimator_ !=nullptr)
             online_fruit_estimator_->computeFruitEstimate();
         }
@@ -678,42 +691,21 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
     else
     {
       ROS_INFO_STREAM_THROTTLE(1.0, "Following Peduncle...");
-      {
-        if(follow_fruit_enabled_.load() == false)
-          return;
-        {
-          std::scoped_lock lk(mutex_timer_estimator_);
-          if(online_fruit_estimator_ !=nullptr)
-            online_fruit_estimator_->computePeduncleEstimate();
-        }
-      }
+      if(online_fruit_estimator_ !=nullptr)
+        online_fruit_estimator_->computePeduncleEstimate();
     }
-    {
-      if(follow_fruit_enabled_.load() == false)
-        return;
-      {
-        std::scoped_lock lk(mutex_timer_estimator_);
-        if(online_fruit_estimator_ !=nullptr)
-          is_new_estimate_available = online_fruit_estimator_->isNewEstimateAvailable();
-      }
-    }
-    if(is_new_estimate_available)
+    if(online_fruit_estimator_->isNewEstimateAvailable())
     {
       DetectedFruitWithPeduncle new_estimate;
-      {
-        if(follow_fruit_enabled_.load() == false)
-          return;
-        {
-          std::scoped_lock lk(mutex_timer_estimator_);
-          if(online_fruit_estimator_ != nullptr)
-            new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
-        }
-      }
+      if(online_fruit_estimator_ != nullptr)
+          new_estimate = online_fruit_estimator_->getUpdatedEstimateofInterestedFruit();
+
       if(new_estimate.has_peduncle == false)
         ROS_WARN_STREAM_THROTTLE(2.0, "New Fruit Estimate BUT NO PEDUNCLE");
       
-      setCurrentEstimateOfTheInterestedFruit(new_estimate);
+      ROS_INFO_STREAM_THROTTLE(0.1, "Got new estimate...");
       pub_interested_fruit_.publish(getInterestedFruitAsRosMsgType(new_estimate));
+      setCurrentEstimateOfTheInterestedFruit(new_estimate);
     }
     else
     {
@@ -722,7 +714,7 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
   }
   else
   {
-    ROS_WARN_STREAM_THROTTLE(1.0, "OTG running. "<<pose_tracker_->getOTGStatus().status);
+    ROS_WARN_STREAM_THROTTLE(3.0, "OTG running. "<<pose_tracker_->getOTGStatus().status);
   }
 }
 // bool ActivePerciever::isDetectedFruitCurrentInterestedOne(const DetectedFruitWithPeduncle& prev_det, DetectedFruitWithPeduncle& potential_candidate, double center_threshold)
@@ -889,7 +881,7 @@ bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& vi
   ROS_INFO_THROTTLE(1.0, "Computing new pose");
   geometry_msgs::TransformStamped camera_tf;
   std::string ref_frame_id = "trolley_local_link";
-  if(getPose(camera_tf, ref_frame_id, "zed2i_camera_center")== false)
+  if(getPose(camera_tf, "zed2i_camera_center", ref_frame_id)== false)
   {
     return false;
   }
@@ -904,13 +896,13 @@ bool ActivePerciever::computeInitialFixedViewPose(geometry_msgs::PoseStamped& vi
 
   int idx = pose_iter_ % 5;
   auto vp_origin = vp_origin_;
-  vp_origin.y() = vp_origin.y() + 0.05; 
+  vp_origin.y() = vp_origin.y() + 0.02; 
   vp_origin.z() = vp_origin.z() + 0.01; 
 
   pose_iter_++;
   view_pose.pose = computeViewPose(fruit_target_eigen, vp_origin, cam_quat);
   view_pose.header.frame_id = ref_frame_id;
-  ROS_INFO_THROTTLE(1.0, "New Posed Computed");
+  ROS_INFO_STREAM_THROTTLE(1.0, "New Pose Computed"<<view_pose.pose);
   return true;
 }
 
@@ -1076,4 +1068,72 @@ bool ActivePerciever::moveToPose(const geometry_msgs::Pose& view_pose)
   motion_planner_->getMoveGroupHandle()->setPlannerId(planner_id_);
   ROS_WARN_STREAM("mapping_motion_type_"<<planner_id_);
   return motion_planner_->movePoseTarget(view_pose, planner_id_);
+}
+
+bool ActivePerciever::callEmptyService(ros::ServiceClient& client)
+{
+  std_srvs::Empty empty_srv;
+  if (!client.call(empty_srv))
+  {
+    ROS_ERROR("Failed to call service");
+    return false;
+  }
+  return true;
+}
+
+bool ActivePerciever::computeViewPose(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_centre, const geometry_msgs::Vector3& fruit_dim, double z_height , double y_coordinate)
+{
+  double fruit_x = fruit_centre.x;
+  double head_base_x  = head_base_link_origin_.x();
+  double left_base_x =  arm_left_base_link_origin_.x();
+  double right_base_x = arm_right_base_link_origin_.x();
+
+  double vp_x = head_base_x + 0.8*(fruit_x - head_base_x);
+  if(vp_x < left_base_x+0.05)
+    vp_x = head_base_x + 0.7*(left_base_x - head_base_x);
+  else if(vp_x > right_base_x-0.05)
+    vp_x = head_base_x + 0.7*(right_base_x - head_base_x);
+
+  double vp_y = y_coordinate;
+  
+  double fruit_top = fruit_centre.z + fruit_dim.z;
+  double vp_z = fruit_top + z_height;
+
+  double z_reach = head_base_link_origin_.z() + 0.58;
+  if(vp_z > z_reach)
+  {
+    vp_z = z_reach;
+    vp_y = y_coordinate - 0.05;
+  }
+  
+  Eigen::Vector3d vp_origin;
+  vp_origin.x() = vp_x;
+  vp_origin.y() = vp_y;
+  vp_origin.z() = vp_z;
+
+  ROS_INFO_STREAM_THROTTLE(2.0, "VP Origin: "<<vp_origin.transpose());
+
+  //ROS_INFO_THROTTLE(1.0, "Computing new pose");
+  geometry_msgs::TransformStamped camera_tf;
+  std::string ref_frame_id = "trolley_local_link";
+  if(getPose(camera_tf, "zed2i_camera_center", ref_frame_id)== false)
+  {
+    return false;
+  }
+  if(initial_motion_done_ == false)
+    utils::convert(camera_tf, curr_view_pose_);
+  
+  tf2::Quaternion cam_quat;
+  tf2::fromMsg(camera_tf.transform.rotation, cam_quat);
+
+  Eigen::Vector3d fruit_target_eigen;
+  tf2::fromMsg(fruit_centre, fruit_target_eigen);
+
+  //fruit_target_eigen.z() +=  fruit_dim.z();
+
+  view_pose.pose = computeViewPose(fruit_target_eigen, vp_origin, cam_quat);
+  view_pose.header.frame_id = ref_frame_id;
+  ROS_INFO_STREAM_THROTTLE(2.0, "New Pose Computed"<<view_pose.pose);
+  return true;
+
 }

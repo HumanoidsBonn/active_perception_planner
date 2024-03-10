@@ -200,22 +200,45 @@ inline geometry_msgs::Quaternion dirVecToQuat(Eigen::Vector3d &dirVec, const tf2
   return tf2::toMsg (camera_quat_eigen);
 }
 
+inline Eigen::Isometry3d poseMsgToEigen(const geometry_msgs::Pose& pose_msg) 
+{
+  Eigen::Isometry3d transform = Eigen::Isometry3d::Identity();
+
+  // Extract position
+  transform.translation() << pose_msg.position.x,
+                              pose_msg.position.y,
+                              pose_msg.position.z;
+
+  // Extract orientation
+  Eigen::Quaterniond quat(pose_msg.orientation.w,
+                          pose_msg.orientation.x,
+                          pose_msg.orientation.y,
+                          pose_msg.orientation.z);
+  transform.linear() = quat.toRotationMatrix();
+
+  return transform;
+}
+
 inline bool arePosesApproximatelyEqual(const geometry_msgs::Pose& pose1, const geometry_msgs::Pose& pose2, double position_tolerance = 0.02, double orientation_tolerance = 0.1) {
-    // Check position
-    double dx = pose1.position.x - pose2.position.x;
-    double dy = pose1.position.y - pose2.position.y;
-    double dz = pose1.position.z - pose2.position.z;
-    double position_distance = sqrt(dx * dx + dy * dy + dz * dz);
+    // // Check position
+    // double dx = pose1.position.x - pose2.position.x;
+    // double dy = pose1.position.y - pose2.position.y;
+    // double dz = pose1.position.z - pose2.position.z;
+    // double position_distance = sqrt(dx * dx + dy * dy + dz * dz);
 
-    // Check orientation
-    double dot_product = pose1.orientation.x * pose2.orientation.x +
-                         pose1.orientation.y * pose2.orientation.y +
-                         pose1.orientation.z * pose2.orientation.z +
-                         pose1.orientation.w * pose2.orientation.w;
-    double orientation_distance = 1 - fabs(dot_product);
+    // // Check orientation
+    // double dot_product = pose1.orientation.x * pose2.orientation.x +
+    //                      pose1.orientation.y * pose2.orientation.y +
+    //                      pose1.orientation.z * pose2.orientation.z +
+    //                      pose1.orientation.w * pose2.orientation.w;
+    // double orientation_distance = 1 - fabs(dot_product);
 
+    auto eigen_tf1 = utils::poseMsgToEigen(pose1);
+    auto eigen_tf2 = utils::poseMsgToEigen(pose2);
+    
+    return (eigen_tf1.isApprox(eigen_tf2, 0.05));
     // Check if both position and orientation are within tolerances
-    return position_distance <= position_tolerance && orientation_distance <= orientation_tolerance;
+    //return position_distance <= position_tolerance && orientation_distance <= orientation_tolerance;
 }
 inline void convert(const geometry_msgs::Transform& trans, geometry_msgs::Pose& pose)
 {

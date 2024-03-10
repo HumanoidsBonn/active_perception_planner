@@ -1,6 +1,6 @@
 active_perciever:
   pose_list:
-    # - init_pose
+    #- obs_pose_303
     # - lc_1
     # - lc_2
     # - lc_3
@@ -9,7 +9,10 @@ active_perciever:
     # - lc_6
     # - lc_7
     # - lc_9
-    - online_obs_pose
-    - lc_1
-    - online_obs_pose
-    # - lc_1
+    # - init_pose
+  - init_pose
+  - tilted_1
+  - tilted_2
+  - tilted_3
+  - tilted_4
+  - init_pose

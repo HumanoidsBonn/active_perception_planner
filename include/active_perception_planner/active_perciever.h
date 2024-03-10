@@ -8,6 +8,7 @@
 
 #include "ros/ros.h"
 #include <std_srvs/Empty.h>
+#include <std_msgs/Bool.h>
 #include <tf/transform_listener.h>
 #include <geometry_msgs/TransformStamped.h>
 
@@ -131,6 +132,12 @@ protected:
 
   std::shared_ptr<active_perception_planner::OnlineFruitEstimator> online_fruit_estimator_;
 
+  ros::ServiceClient client_start_gsm_node_, client_stop_gsm_node_;
+  ros::Publisher pub_control_gsm_;
+
+  bool callEmptyService(ros::ServiceClient& client);
+
+
   //voxblox map
   // std::mutex layer_mutex_;
   // bool layer_present_;
@@ -215,6 +222,7 @@ protected:
   bool computeViewpointOriginForZPlane(geometry_msgs::Point& vp_origin, const geometry_msgs::Point& fruit_centre, const geometry_msgs::Vector3& fruit_dim, const geometry_msgs::Point& obs_target, double z_plane = 0.95, double min_distance=0.30);
   bool computeViewPoseForZPlane(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_target, const geometry_msgs::Point& vp_origin);
   
+  bool computeViewPose(geometry_msgs::PoseStamped& view_pose, const geometry_msgs::Point& fruit_centre, const geometry_msgs::Vector3& fruit_dim, double z_height = 0.1, double y_coordinate = 0.20);
   //sensor_msgs::JointState
 
   std::vector<std::string> mapping_poses_list_; // list of named poses for exploring the current local poses
@@ -286,10 +294,10 @@ protected:
     return fruit_with_peduncle;
   }
 
-  inline void setCurrentEstimateOfTheInterestedFruit(const DetectedFruitWithPeduncle& fruit, bool fruit_est_initialised = true)
+  inline void setCurrentEstimateOfTheInterestedFruit(const DetectedFruitWithPeduncle& fruit, bool fruit_est_initialised = false)
   {
     std::scoped_lock lk(mutex_);
-    if(fruit_est_initialised)
+    if(fruit_est_initialised_)
       prev_est_interested_fruit_ = curr_est_interested_fruit_;
     else
     {
