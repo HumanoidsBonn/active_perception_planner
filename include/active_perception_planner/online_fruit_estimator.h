@@ -170,6 +170,8 @@ class OnlineFruitEstimator
 
   double new_fruit_gain_ = 0.2;
 
+  int num_peduncle_computations_ = 0;
+
   std::mutex mutex_;
 
   Eigen::Vector3d cutter_ee_pos_;

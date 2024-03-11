@@ -213,6 +213,10 @@ protected:
   geometry_msgs::PoseStamped curr_view_pose_;
   std::vector<Eigen::Vector3d> view_positions_;
   uint64_t pose_iter_ = 0; 
+
+  std::atomic_bool curr_view_pose_reached_ = false;
+
+  std::atomic_bool peduncle_detected_ = false;
   
   bool moveToPose(const geometry_msgs::Pose&);
   geometry_msgs::Pose computeViewPose(const Eigen::Vector3d& fruit_target, const Eigen::Vector3d& vp_origin, const tf2::Quaternion& cam_quat);

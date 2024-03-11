@@ -513,7 +513,7 @@ void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems
     //ROS_INFO("6");
     findTopAndBottomPoints(stems_temp[i].line_cloud, stems_[i].top_point, stems_temp[i].bottom_point);
 
-    if(isStemTooShort(stems_temp[i].top_point, stems_temp[i].bottom_point, 0.05))
+    if(isStemTooShort(stems_temp[i].top_point, stems_temp[i].bottom_point, 0.03f))
       continue;
     if(isStemApproximatelyParallelToZAxis(stems_temp[i].line_direction, 15.0f) == false)
       continue;
