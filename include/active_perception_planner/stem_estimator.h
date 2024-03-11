@@ -98,7 +98,7 @@ class StemEstimator
 
     void setStems(const std::vector<Stem>& stems);
 
-  float computeCloudOverlap(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2);
+  float computeCloudOverlap(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud1, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud2);
 
     bool isStemApproximatelyParallelToZAxis(const Eigen::Vector3f& line_direction, float threshold_angle_degrees);
 
