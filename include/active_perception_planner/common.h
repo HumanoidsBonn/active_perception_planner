@@ -17,6 +17,11 @@ struct Stem
   Eigen::Vector3f line_direction;
   Eigen::Vector3f top_point, bottom_point;
   float diameter;
+
+  Stem()
+  {
+    line_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+  }
 };
 
 struct Peduncle
@@ -27,6 +32,11 @@ struct Peduncle
   Eigen::Vector3f fruitpoint, stempoint;
   uint32_t associated_fruit_id;
   geometry_msgs::Pose associated_fruit_pose;
+
+  Peduncle() 
+  {
+    peduncle_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>);
+  }
 };
 
 struct DetectedFruitWithPeduncle
