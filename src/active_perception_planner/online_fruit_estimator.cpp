@@ -53,6 +53,7 @@ tf_listener_(tf_buffer_)
 std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> OnlineFruitEstimator::readDetections(double sleep_time, double total_time, bool enable_continuous_detections)
 {
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = nullptr;
+  roi_detector_->enableTrackedDetectionCallback(true);
   if(enable_continuous_detections)
     roi_detector_->enableContinuousDetections(true);
   else
@@ -578,6 +579,7 @@ typename pcl::PointCloud<PointT>::Ptr OnlineFruitEstimator::filterCloud(const ty
 
 bool OnlineFruitEstimator::computePeduncleEstimate()
 {
+  num_peduncle_computations_++;
   ROS_INFO_STREAM_THROTTLE(0.1, "computePeduncleEstimate");
   Eigen::Vector3d cutter_ee_pos;
   if(is_peduncle_computed_)
@@ -590,7 +592,7 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
       return false;
     }
   }
-  //ROS_INFO_STREAM_THROTTLE(0.1, "After Cutter");
+  ROS_INFO_STREAM_THROTTLE(0.1, "After Cutter");
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> detections = readDetections(0.02, 0.06, true);
 
   ROS_INFO_STREAM_THROTTLE(0.1, "AFTER READ");
@@ -606,6 +608,7 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
     ROS_WARN_STREAM_THROTTLE(0.1, "Peduncle detections empty");
     return false;
   }
+  ROS_INFO_STREAM_THROTTLE(0.1, "Peduncle detections size: "<<detections->peduncles.size());
   for(int i = 0; i < detections->peduncles.size(); ++i)
   {
     if(confident_id_available_ && detections->peduncles[i].instance_id == fruit_id_of_confident_detection_)
@@ -654,11 +657,22 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
   return true;
 }
 
+// bool isOnlinePeduncleGoodEnough(const Peduncle& peduncle, bool peduncle_found)
+// {
+//   if(num_peduncle_computations_ < 3)
+//     return true;
+
+//   if()
+
+//   if((peduncle.stempoint- peduncle.fruitpoint).z() < 0.02)
+//     return false;
+// }
+
 bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle)
 {
   if(peduncle.cloud_segment == nullptr || peduncle.cloud_segment->empty())
   {
-    ROS_WARN_THROTTLE(0.1, "Peduncle cloud empty");
+    ROS_WARN_THROTTLE(0.1, "isPeduncleCloudValid: Peduncle cloud empty");
     return false;
   }
   sensor_msgs::PointCloud2 ped_msg;
@@ -677,7 +691,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
   bbox_min.x() = bbox_min.x() - 0.02;
   bbox_min.y() = bbox_min.y() - 0.02;
 
-  bbox_min.z() = bbox_min.z() + 1.0*dim.z()-0.02;
+  bbox_min.z() = bbox_min.z() + 1.0*dim.z()-0.01;
 
   bbox_max = centre + dim;
   bbox_max.x() = bbox_max.x() + 0.02;
@@ -692,7 +706,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
   
   if(ped_centroid.x() < bbox_min.x() || ped_centroid.x() > bbox_max.x() || ped_centroid.y() < bbox_min.y() || ped_centroid.y() > bbox_max.y() || ped_centroid.z() < bbox_min.z() || ped_centroid.z() > bbox_max.z())
   {
-    ROS_WARN_STREAM_THROTTLE(0.1, "Peduncle outside top bbox: centroid: "<<ped_centroid.transpose()<<"\t bbox_min: "<<bbox_min.transpose()<<"\t bbox_max: "<<bbox_max.transpose());
+    ROS_WARN_STREAM_THROTTLE(0.000001, "Peduncle outside top bbox: centroid: "<<ped_centroid.transpose()<<"\t bbox_min: "<<bbox_min.transpose()<<"\t bbox_max: "<<bbox_max.transpose());
     return false;
   }
   return true;

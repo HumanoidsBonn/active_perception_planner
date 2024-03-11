@@ -189,18 +189,18 @@ bool ActivePerciever::performLocalMappingMotion()
     // std_msgs::Bool control;
     // control.data = false;
     // pub_control_gsm_.publish(control);
-    sleep(0.1);
+    //sleep(0.1);
     if(moveToNextMappingPose(next_pose)== false)
     {
       setActivePercieverStatus(ERROR_LOCAL_MAPPING_MOTION);
       return false; //getActivePercieverStatus();
     }
     
-    sleep(0.5);
+    sleep(0.9);
     processDetectionsAtSensorPose();
 
   }
-  sleep(0.5);
+  sleep(0.9);
   // std_msgs::Bool control;
   // control.data = false;
   // pub_control_gsm_.publish(control);
@@ -519,6 +519,7 @@ bool ActivePerciever::moveToInterestedFruitObservationPose(const uint &fruit_id)
 
 bool ActivePerciever::startFollowPeduncle(const uint &fruit_id)
 {
+  peduncle_detected_.store(true);
   start_peduncle_following_.store(true);
   ROS_WARN_STREAM_THROTTLE(1.0, "START FOLLOW PEDUNCLE"<<start_peduncle_following_);
   geometry_msgs::TransformStamped ee_tf;
@@ -568,6 +569,7 @@ bool ActivePerciever::startFollowFruit(const uint &fruit_id)
       timer_fruit_estimator_.start();
     }
     follow_fruit_enabled_.store(true);
+    curr_view_pose_reached_.store(false);
     return true;
   }
   return false;
@@ -655,6 +657,7 @@ void ActivePerciever::followFruitCallback(const ros::TimerEvent&)
     }
     if(utils::arePosesApproximatelyEqual(curr_view_pose_.pose, view_pose_stamped.pose))
     {
+      curr_view_pose_reached_.store(true);
       ROS_INFO_STREAM_THROTTLE(2.0, "New pose is approx equal to old pose. Hence not sending");
       return;
     }
@@ -674,7 +677,7 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
   if(follow_fruit_enabled_.load() == false)
     return;
   std::scoped_lock lk(mutex_timer_estimator_);
-  if(pose_tracker_->isOTGRunning() == false)
+  if(pose_tracker_->isOTGRunning() == false || curr_view_pose_reached_.load() == true)
   {
     ROS_INFO_STREAM_THROTTLE(3.0, "OTG not running. Hence compute fruit estimate");
     bool is_new_estimate_available = false;
@@ -691,8 +694,9 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
     else
     {
       ROS_INFO_STREAM_THROTTLE(1.0, "Following Peduncle...");
+      bool peduncle_available = false;
       if(online_fruit_estimator_ !=nullptr)
-        online_fruit_estimator_->computePeduncleEstimate();
+        peduncle_available = online_fruit_estimator_->computePeduncleEstimate();
     }
     if(online_fruit_estimator_->isNewEstimateAvailable())
     {
@@ -1091,19 +1095,29 @@ bool ActivePerciever::computeViewPose(geometry_msgs::PoseStamped& view_pose, con
   double vp_x = head_base_x + 0.8*(fruit_x - head_base_x);
   if(vp_x < left_base_x+0.05)
     vp_x = head_base_x + 0.7*(left_base_x - head_base_x);
-  else if(vp_x > right_base_x-0.05)
-    vp_x = head_base_x + 0.7*(right_base_x - head_base_x);
+  else if(vp_x > right_base_x-0.02)
+    vp_x = head_base_x + 0.85*(right_base_x - head_base_x);
 
   double vp_y = y_coordinate;
   
+
   double fruit_top = fruit_centre.z + fruit_dim.z;
   double vp_z = fruit_top + z_height;
+
+  if(start_peduncle_following_.load() == true)
+  {
+    if(fruit_centre.y - vp_y > 0.31)
+    {
+      vp_y = vp_y + 0.04;
+      vp_z = vp_z + 0.015;
+    }
+  }
 
   double z_reach = head_base_link_origin_.z() + 0.58;
   if(vp_z > z_reach)
   {
     vp_z = z_reach;
-    vp_y = y_coordinate - 0.05;
+    vp_y = y_coordinate - 0.04;
   }
   
   Eigen::Vector3d vp_origin;

@@ -235,6 +235,14 @@ inline bool arePosesApproximatelyEqual(const geometry_msgs::Pose& pose1, const g
 
     auto eigen_tf1 = utils::poseMsgToEigen(pose1);
     auto eigen_tf2 = utils::poseMsgToEigen(pose2);
+
+    double translationDist = (eigen_tf1.translation() - eigen_tf2.translation()).norm();
+    Eigen::Quaterniond q_a(eigen_tf1.linear());
+    Eigen::Quaterniond q_b(eigen_tf2.linear());
+    double rotationDist = q_a.angularDistance(q_b);
+
+    return translationDist < 0.02 && rotationDist <10 * M_PI / 180;
+
     
     return (eigen_tf1.isApprox(eigen_tf2, 0.05));
     // Check if both position and orientation are within tolerances

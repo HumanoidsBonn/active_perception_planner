@@ -78,7 +78,7 @@ void ActivePercieverInterface::executeDetectionServerGoalCallback()
   }
 
   yolact_ros_msgs::SetConfidence srv_set_conf_iou;
-  srv_set_conf_iou.request.confidence_threshold = 0.75;
+  srv_set_conf_iou.request.confidence_threshold = 0.77;
   srv_set_conf_iou.request.confidence_threshold = 0.6;
 
   if (!client_set_confidence_iou_.call(srv_set_conf_iou))
