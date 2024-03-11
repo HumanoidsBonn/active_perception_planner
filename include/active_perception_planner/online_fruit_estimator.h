@@ -275,6 +275,8 @@ class OnlineFruitEstimator
   bool isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle);
 
   bool isCutterOccludingPeduncle(const Eigen::Vector3d& cutter_ee_pos, const Peduncle& peduncle, double dist_threshold);
+  std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> readDetections(double sleep_time, double total_time, bool enable_continuous_detections);
+
 
 
 };
