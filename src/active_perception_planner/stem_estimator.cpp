@@ -2,6 +2,15 @@
 #include <pcl/sample_consensus/method_types.h>
 #include <pcl/sample_consensus/model_types.h>
 #include <pcl/segmentation/sac_segmentation.h>
+#include <pcl/point_types.h>
+#include <pcl/search/kdtree.h>
+#include <pcl/surface/mls.h>
+#include <pcl/surface/poisson.h>
+#include <pcl/point_cloud.h>
+#include <pcl/point_types.h>
+#include <pcl/common/transforms.h>
+#include <pcl/filters/statistical_outlier_removal.h>
+#include <pcl/filters/voxel_grid.h>
 
 using namespace active_perception_planner;
 
@@ -422,24 +431,32 @@ std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const st
 
   return stems;
 }
-float StemEstimator::computeCloudOverlap(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2) 
+float StemEstimator::computeCloudOverlap(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud1, const pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud2) 
 {
   if(cloud1 == nullptr || cloud2 == nullptr)
     return 0.0f;
   
-  pcl::PointCloud<pcl::PointXYZ> intersection;
-  pcl::PointCloud<pcl::PointXYZ> union_cloud;
-  pcl::PointCloud<pcl::PointXYZ> difference_cloud;
+  pcl::PointXYZRGB  pcl_min_pt1, pcl_max_pt1, pcl_min_pt2, pcl_max_pt2;
+  
+  pcl::getMinMax3D(*cloud1, pcl_min_pt1, pcl_max_pt1);
+  pcl::getMinMax3D(*cloud2, pcl_min_pt2, pcl_max_pt2);
 
-  // Compute intersection
-  pcl::intersection(cloud1, cloud2, intersection);
+  Eigen::Vector3f min_pt1(pcl_min_pt1.x, pcl_min_pt1.y, pcl_min_pt1.z);
+  Eigen::Vector3f max_pt1(pcl_max_pt1.x, pcl_max_pt1.y, pcl_max_pt1.z);
+  Eigen::Vector3f min_pt2(pcl_min_pt2.x, pcl_min_pt2.y, pcl_min_pt2.z);
+  Eigen::Vector3f max_pt2(pcl_max_pt2.x, pcl_max_pt2.y, pcl_max_pt2.z);
 
-  // Compute union
-  pcl::concatenatePointCloud(cloud1, cloud2, union_cloud);
-  pcl::unionCloud(union_cloud, difference_cloud, union_cloud);
+  // Compute the volume of intersection between the two bounding boxes
+  float intersection_volume = (std::max(0.0f, std::min(max_pt1[0], max_pt2[0]) - std::max(min_pt1[0], min_pt2[0]))) *
+                              (std::max(0.0f, std::min(max_pt1[1], max_pt2[1]) - std::max(min_pt1[1], min_pt2[1]))) *
+                              (std::max(0.0f, std::min(max_pt1[2], max_pt2[2]) - std::max(min_pt1[2], min_pt2[2])));
 
-  // Compute overlap ratio
-  float overlap_ratio = static_cast<float>(intersection.size()) / static_cast<float>(union_cloud.size());
+  // Compute the volumes of each bounding box
+  float volume1 = (max_pt1[0] - min_pt1[0]) * (max_pt1[1] - min_pt1[1]) * (max_pt1[2] - min_pt1[2]);
+  float volume2 = (max_pt2[0] - min_pt2[0]) * (max_pt2[1] - min_pt2[1]) * (max_pt2[2] - min_pt2[2]);
+
+  // Compute the overlap ratio
+  float overlap_ratio = intersection_volume / std::min(volume1, volume2);
   return overlap_ratio;
 }
 
@@ -522,7 +539,7 @@ bool StemEstimator::checkIfStemsAreSame(const Stem& st1, const Stem st2, const f
 
   float overlap_ratio = computeCloudOverlap(st1.line_cloud, st2.line_cloud);
   // Check if the difference in direction and distance in XY plane are within thresholds
-  return ((dir_diff < dir_threshold && distance < xy_threshold) || overlap_ratio > 0.3);
+  return ((dir_diff < dir_threshold && distance < xy_threshold) || overlap_ratio > 0.4);
 }
 
 float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
