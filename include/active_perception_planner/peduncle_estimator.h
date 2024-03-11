@@ -44,9 +44,11 @@ class PeduncleEstimator
 
   void processPeduncleDetections(const std::shared_ptr<pointcloud_roi::SemanticInstanceDetections>& dets);
 
-  void mergePedunclesByPepperID(const std::vector<pointcloud_roi::SemanticInstanceDetection> curr_peduncle_dets);
+  void mergePedunclesByPepperID(std::vector<pointcloud_roi::SemanticInstanceDetection>& curr_peduncle_dets);
 
-  void estimatePeduncleEndpoints();
+  void calculatePeduncleEndpoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& fruitpoint, Eigen::Vector3f& stempoint);
+  bool IsThereOverlapBetweenPeduncles(const Peduncle& existing_peduncle, Eigen::Vector3f& new_fp, const Eigen::Vector3f& new_sp);
+
 
   std::vector<pointcloud_roi::SemanticInstanceDetection> peduncle_detections_;
   std::unordered_map<uint32_t, Peduncle> peduncle_map_;

@@ -20,7 +20,7 @@ Crop CropEstimator::createCrop(const FruitMap& fruit_map, const std::unordered_m
     ROS_INFO_STREAM("Fruit top centre x: "<<it->second.fruit.fruit_pose.position.x <<"y:"<<it->second.fruit.fruit_pose.position.y<<" z: "<<it->second.fruit.fruit_pose.position.z + it->second.fruit.fruit_size.z);
     if(it->second.has_peduncle)
     {
-      ROS_INFO_STREAM("\tHas Peduncle with points: "<<it->second.peduncle.peduncle_cloud->points.size()<<" fruitpoint: "<<it->second.peduncle.fruitpoint<<" stempoint: "<<it->second.peduncle.stempoint);
+      ROS_INFO_STREAM("\tHas Peduncle with points: "<<it->second.peduncle.peduncle_cloud->points.size()<<" fruitpoint: "<<it->second.peduncle.fruitpoint.transpose()<<" stempoint: "<<it->second.peduncle.stempoint.transpose());
     }
     else
     {
@@ -85,7 +85,7 @@ std::unordered_map<uint32_t, Peduncle> CropEstimator::mergeSamePeduncles(const s
       double overlap_percentage_cloud1 = 1.0* num_overlapping_points/it_outer->second.peduncle_cloud->points.size();
       double overlap_percentage_cloud2 = 1.0* num_overlapping_points/it_inner->second.peduncle_cloud->points.size();
 
-      if(overlap_percentage_cloud1 > 0.3 || overlap_percentage_cloud2 > 0.3)
+      if(overlap_percentage_cloud1 > 0.5 || overlap_percentage_cloud2 > 0.5)
       {
         overlap = true;
         ROS_INFO_STREAM("Overlap between peduncles detected");
@@ -195,7 +195,7 @@ void CropEstimator::associateStemsWithFruits(std::unordered_map<uint32_t, Detect
       float dist = pointLineDistance(fruit_with_peduncle.fruit.fruit_pose.position, stem.line_origin, stem.line_direction);
       if(dist < nearness_threshold)
       {
-        fruit_with_peduncle_map[itf->first].nearby_stems.push_back(stem_idx);
+        fruit_with_peduncle_map[itf->first].nearby_stems.push_back(stem.stem_id);
       }
       if(dist <= belonging_threshold)
       {
@@ -209,7 +209,7 @@ void CropEstimator::associateStemsWithFruits(std::unordered_map<uint32_t, Detect
     }
     if(has_belonging_stem)
     {
-      fruit_with_peduncle_map[itf->first].nearest_stem = nearest_stem_idx;
+      fruit_with_peduncle_map[itf->first].nearest_stem = stems[nearest_stem_idx].stem_id;
       auto nearest_stem = stems[nearest_stem_idx];
       //estimatePeduncleEndpointsWithNearestStem(fruit_with_peduncle, nearest_stem);
       //fruit_with_peduncle_map[itf->first].peduncle = fruit_with_peduncle.peduncle;
@@ -265,21 +265,21 @@ bool CropEstimator:: isPeduncleAtTopCenterOfFruit(superellipsoid::DetectedFruit&
   float fruitpoint_dist = fruitpoint_gap.norm();
   float stempoint_dist  = stempoint_gap.norm();
 
-  if(fruitpoint_dist < 0.07)
+  if(fruitpoint_dist < 0.03)
   {
     ROS_INFO("Peduncle attached to fruit at fruitpoint");
     peduncle.associated_fruit_id = fruit.fruit_id;
     return true;
   }
-  else if(stempoint_dist < 0.07)
-  {
-    ROS_INFO("Peduncle attached to fruit at original stempoint. Swapping them...");
-    peduncle.associated_fruit_id = fruit.fruit_id;
-    auto temp = peduncle.fruitpoint;
-    peduncle.fruitpoint = peduncle.stempoint;
-    peduncle.stempoint = temp;
-    return true;
-  }
+  // else if(stempoint_dist < 0.03)
+  // {
+  //   ROS_INFO("Peduncle attached to fruit at original stempoint. Swapping them...");
+  //   peduncle.associated_fruit_id = fruit.fruit_id;
+  //   auto temp = peduncle.fruitpoint;
+  //   peduncle.fruitpoint = peduncle.stempoint;
+  //   peduncle.stempoint = temp;
+  //   return true;
+  // }
   else
   {
     ROS_WARN_STREAM("Peduncle does not belong to fruit");

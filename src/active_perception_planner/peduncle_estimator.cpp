@@ -76,10 +76,32 @@ void PeduncleEstimator::processPeduncleDetections(const std::shared_ptr<pointclo
   mergePedunclesByPepperID(curr_peduncle_dets);
 }
 
-void PeduncleEstimator::mergePedunclesByPepperID(const std::vector<pointcloud_roi::SemanticInstanceDetection> curr_peduncle_dets)
+void PeduncleEstimator::calculatePeduncleEndpoints(pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud, Eigen::Vector3f& fruitpoint, Eigen::Vector3f& stempoint)
+{
+  std::sort(cloud->begin(), cloud->end(), [](const pcl::PointXYZRGB& a, const pcl::PointXYZRGB& b) {
+        return a.z < b.z;
+  });
+
+  fruitpoint = cloud->front().getVector3fMap();
+  stempoint  = cloud->back().getVector3fMap();
+
+}
+
+bool PeduncleEstimator::IsThereOverlapBetweenPeduncles(const Peduncle& existing_peduncle, Eigen::Vector3f& new_fp, const Eigen::Vector3f& new_sp)
+{
+  double dist_between_fruitpoints = (existing_peduncle.fruitpoint - new_fp).norm();
+  double dist_between_stempoints  = (existing_peduncle.stempoint - new_sp).norm();
+
+  if(dist_between_fruitpoints < 0.03 && dist_between_stempoints < 0.03)
+    return true;
+
+  return false;
+}
+
+void PeduncleEstimator::mergePedunclesByPepperID(std::vector<pointcloud_roi::SemanticInstanceDetection>& curr_peduncle_dets)
 {
  
-  for(const pointcloud_roi::SemanticInstanceDetection& peduncle_det: curr_peduncle_dets)
+  for(pointcloud_roi::SemanticInstanceDetection& peduncle_det: curr_peduncle_dets)
   {
     if(peduncle_det.cloud_segment == nullptr || peduncle_det.cloud_segment->empty())
       continue;
@@ -90,15 +112,20 @@ void PeduncleEstimator::mergePedunclesByPepperID(const std::vector<pointcloud_ro
     sor.filter(*peduncle_det.cloud_segment);
     
     uint32_t pepper_id = peduncle_det.associated_instance;
-    if(peduncle_map_.find(pepper_id) == peduncle_map_.end())
+    auto it = peduncle_map_.find(pepper_id);
+    if(it == peduncle_map_.end())
     {
       peduncle_map_[pepper_id].peduncle_cloud = peduncle_det.cloud_segment;
       peduncle_map_[pepper_id].associated_fruit_id = pepper_id;
       peduncle_map_[pepper_id].peduncle_id = peduncle_det.instance_id;
+      calculatePeduncleEndpoints(peduncle_map_[pepper_id].peduncle_cloud, peduncle_map_[pepper_id].fruitpoint, peduncle_map_[pepper_id].stempoint);
     }
     else
     {
-      *(peduncle_map_[pepper_id].peduncle_cloud) += *(peduncle_det.cloud_segment);
+      Eigen::Vector3f ped_det_fp, ped_det_sp;
+      calculatePeduncleEndpoints(peduncle_det.cloud_segment, ped_det_fp, ped_det_sp);
+      if(IsThereOverlapBetweenPeduncles(it->second, ped_det_fp, ped_det_sp))
+        *(peduncle_map_[pepper_id].peduncle_cloud) += *(peduncle_det.cloud_segment);
     }
   }
 }
