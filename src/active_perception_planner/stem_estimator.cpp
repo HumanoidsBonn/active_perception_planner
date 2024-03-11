@@ -108,7 +108,7 @@ void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::Sem
     if(stem_det.cloud_segment == nullptr || stem_det.cloud_segment->size() < single_stem_min_points_)
       continue;
     
-    ROS_INFO_STREAM("SetCurrent Det: det cloud size: "<<stem_det.cloud_segment->size());
+    //ROS_INFO_STREAM("SetCurrent Det: det cloud size: "<<stem_det.cloud_segment->size());
     stem_detections_.push_back(stem_det);
   }
   //stem_detections_.insert(stem_detections_.begin(), dets->stems.begin(), dets->stems.end());
@@ -118,7 +118,7 @@ void StemEstimator::setCurrentStemDetections(std::shared_ptr<pointcloud_roi::Sem
 std::vector<Stem> StemEstimator::createStemsFromCurrentDetections(const std::vector<pointcloud_roi::SemanticInstanceDetection>& stem_detections)
 {
   std::vector<Stem> stems = getStems();
-  ROS_WARN_STREAM("Size of stems: "<<stems.size()<<"\t persistent: "<<stems_.size());
+  //ROS_WARN_STREAM("Size of stems: "<<stems.size()<<"\t persistent: "<<stems_.size());
   for(int i = 0; i < stem_detections.size(); ++i)
   {
     auto stem_det = stem_detections[i];
@@ -422,6 +422,26 @@ std::vector<Stem> StemEstimator::combine3DSegmentsFromGrouped2DSegments(const st
 
   return stems;
 }
+float StemEstimator::computeCloudOverlap(const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud1, const pcl::PointCloud<pcl::PointXYZ>::Ptr cloud2) 
+{
+  if(cloud1 == nullptr || cloud2 == nullptr)
+    return 0.0f;
+  
+  pcl::PointCloud<pcl::PointXYZ> intersection;
+  pcl::PointCloud<pcl::PointXYZ> union_cloud;
+  pcl::PointCloud<pcl::PointXYZ> difference_cloud;
+
+  // Compute intersection
+  pcl::intersection(cloud1, cloud2, intersection);
+
+  // Compute union
+  pcl::concatenatePointCloud(cloud1, cloud2, union_cloud);
+  pcl::unionCloud(union_cloud, difference_cloud, union_cloud);
+
+  // Compute overlap ratio
+  float overlap_ratio = static_cast<float>(intersection.size()) / static_cast<float>(union_cloud.size());
+  return overlap_ratio;
+}
 
 void StemEstimator::mergeNewWithExistingStems(const std::vector<Stem>& new_stems)
 {
@@ -500,9 +520,9 @@ bool StemEstimator::checkIfStemsAreSame(const Stem& st1, const Stem st2, const f
   // Calculate the Euclidean distance between the intersection points
   float distance = (intersection1 - intersection2).norm();
 
-
+  float overlap_ratio = computeCloudOverlap(st1.line_cloud, st2.line_cloud);
   // Check if the difference in direction and distance in XY plane are within thresholds
-  return (dir_diff < dir_threshold && distance < xy_threshold);
+  return ((dir_diff < dir_threshold && distance < xy_threshold) || overlap_ratio > 0.3);
 }
 
 float StemEstimator::calculateApproximateDiameterAverageMetric(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& line_cloud, const Eigen::Vector3f& line_origin, const Eigen::Vector3f& line_direction) 
