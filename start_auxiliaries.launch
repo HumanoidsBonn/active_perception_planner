@@ -1,8 +1,0 @@
-<?xml version="1.0"?>
-<launch>
-<include file="$(find active_perception_planner)/launch/start_zed2i.launch"/>
-<include file="$(find yolo_segmentation_ros)/launch/start.launch"/>
-<include file="$(find active_perception_planner)/launch/start_mapping.launch"/>
-<include file="$(find horti_launch)/moveit/launch/moveit_execution.launch"/>
-
-</launch>
