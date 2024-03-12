@@ -1,6 +1,6 @@
 #include "active_perception_planner/online_fruit_estimator.h"
 #include "active_perception_planner/common.h"
-
+#include "active_perception_planner/utils_pointcloud_distances.h"
 
 
 
@@ -698,6 +698,13 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
   bbox_max.y() = bbox_max.y() + 0.03;
 
   bbox_max.z() = bbox_max.z() + 1.0*dim.z() + 0.02;
+
+  peduncle.cloud_segment = utils::filterPointCloudByBoundingBox(peduncle.cloud_segment, bbox_min, bbox_max);
+  if(peduncle.cloud_segment->empty())
+  {
+    ROS_WARN_THROTTLE(0.00001, "isPeduncleCloudValid: After BBOX filtering Peduncle cloud empty");
+    return false;
+  }
 
   Eigen::Vector4f centroid;
   pcl::compute3DCentroid(*(peduncle.cloud_segment), centroid);

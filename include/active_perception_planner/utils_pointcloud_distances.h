@@ -272,6 +272,34 @@ float computeDistanceHausdorff(Cloud &cloud_a, Cloud &cloud_b)
   return dist;
 }
 
+inline pcl::PointCloud<pcl::PointXYZRGB>::Ptr filterPointCloudByBoundingBox(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud,
+                                                                     const Eigen::Vector3d& bbox_min,
+                                                                     const Eigen::Vector3d& bbox_max) {
+    pcl::PointCloud<pcl::PointXYZRGB>::Ptr filtered_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
+    // Iterate through each point in the cloud
+    for (const auto& point : cloud->points) {
+        // Extract XYZ coordinates from the point
+        double x = point.x;
+        double y = point.y;
+        double z = point.z;
+
+        // Check if the point lies within the bounding box
+        if (x >= bbox_min.x() && x <= bbox_max.x() &&
+            y >= bbox_min.y() && y <= bbox_max.y() &&
+            z >= bbox_min.z() && z <= bbox_max.z()) {
+            // Point lies within the bounding box, add it to the filtered cloud
+            filtered_cloud->points.push_back(point);
+        }
+    }
+
+    // Set width and height of the filtered cloud
+    filtered_cloud->width = filtered_cloud->points.size();
+    filtered_cloud->height = 1;
+
+    return filtered_cloud;
+}
+
 
 }
 

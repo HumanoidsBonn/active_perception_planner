@@ -6,7 +6,6 @@
 #include <pointcloud_roi/detected_roi_filter.h>
 #include<capsicum_superellipsoid_detector/se_detector.h>
 #include <unordered_set>
-
 namespace active_perception_planner
 {
 struct Stem
