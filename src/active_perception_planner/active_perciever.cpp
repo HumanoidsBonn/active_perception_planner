@@ -14,7 +14,7 @@ using namespace active_perception_planner;
 using namespace utils;
 
 ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planning_group_name, const std::string& base_frame, const std::string& tip_frame, const bool disable_motion):status_(ActivePercieverStatus::IDLE), nhp_(nhp), planning_group_name_(planning_group_name), base_frame_(base_frame), tip_frame_(tip_frame), planner_id_("PTP"), plane_normal_(0, 0, 1), max_num_tries_(10),
-  tf_buffer_(ros::Duration(30)),
+  tf_buffer_(ros::Duration(10)),
   tf_listener_(tf_buffer_),
   disable_motion_(disable_motion)
 {
@@ -677,7 +677,7 @@ void ActivePerciever::estimateFruitPoseFromCurrenDetectionsCallback(const ros::T
   if(follow_fruit_enabled_.load() == false)
     return;
   std::scoped_lock lk(mutex_timer_estimator_);
-  if(pose_tracker_->isOTGRunning() == false || curr_view_pose_reached_.load() == true)
+  if(pose_tracker_->isOTGRunning() == false || curr_view_pose_reached_.load() == true || pose_tracker_->isHeadStationary())
   {
     ROS_INFO_STREAM_THROTTLE(3.0, "OTG not running. Hence compute fruit estimate");
     bool is_new_estimate_available = false;
@@ -1093,8 +1093,8 @@ bool ActivePerciever::computeViewPose(geometry_msgs::PoseStamped& view_pose, con
   double right_base_x = arm_right_base_link_origin_.x();
 
   double vp_x = head_base_x + 0.8*(fruit_x - head_base_x);
-  if(vp_x < left_base_x+0.05)
-    vp_x = head_base_x + 0.7*(left_base_x - head_base_x);
+  if(vp_x < left_base_x+0.02)
+    vp_x = head_base_x + 0.85*(left_base_x - head_base_x);
   else if(vp_x > right_base_x-0.02)
     vp_x = head_base_x + 0.85*(right_base_x - head_base_x);
 
@@ -1106,7 +1106,7 @@ bool ActivePerciever::computeViewPose(geometry_msgs::PoseStamped& view_pose, con
 
   if(start_peduncle_following_.load() == true)
   {
-    if(fruit_centre.y - vp_y > 0.31)
+    if(fruit_centre.y - vp_y > 0.35)
     {
       vp_y = vp_y + 0.04;
       vp_z = vp_z + 0.015;
@@ -1118,6 +1118,10 @@ bool ActivePerciever::computeViewPose(geometry_msgs::PoseStamped& view_pose, con
   {
     vp_z = z_reach;
     vp_y = y_coordinate - 0.04;
+  }
+  else if(vp_z < 0.79)
+  {
+    vp_z = 0.79;
   }
   
   Eigen::Vector3d vp_origin;

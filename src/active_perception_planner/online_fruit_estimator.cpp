@@ -40,7 +40,7 @@ tf_listener_(tf_buffer_)
   timer_tf_   = nhp_.createTimer(ros::Duration(0.4), &OnlineFruitEstimator::processTFTimerCallback, this);
   timer_tf_.start();
   int buffer_size = 5;
-  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 3);
+  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 4);
 
   peduncle_buffer_ = std::make_unique<PointCloudBuffer<pcl::PointXYZRGB>>(buffer_size, 0.5);
 
@@ -493,6 +493,26 @@ Peduncle OnlineFruitEstimator::convert(pointcloud_roi::SemanticInstanceDetection
   return peduncle;
 }
 
+Peduncle OnlineFruitEstimator::convert(pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud_segment)
+{
+  Peduncle peduncle;
+  peduncle.peduncle_cloud.reset(new pcl::PointCloud<pcl::PointXYZRGB>());
+  pcl::StatisticalOutlierRemoval<pcl::PointXYZRGB> sor;
+  if(cloud_segment == nullptr or cloud_segment->empty())
+  {
+    peduncle.peduncle_cloud.reset();
+    return peduncle;
+  }
+  sor.setInputCloud(cloud_segment);
+  sor.setMeanK(30); // Set the number of neighbors to use for mean distance estimation
+  sor.setStddevMulThresh(1.0); // Set the standard deviation multiplier threshold
+  sor.filter(*peduncle.peduncle_cloud);
+  //*peduncle.peduncle_cloud = *ped_det.cloud_segment;
+  //peduncle.peduncle_id = ped_det.instance_id;
+  peduncle.is_estimation = false;
+  return peduncle;
+}
+
 pcl::PointCloud<pcl::PointXYZRGB>::Ptr OnlineFruitEstimator::createSurfaceCloud(const pcl::PointCloud<pcl::PointXYZRGB>::Ptr& input_cloud)
 {
   auto smoothed_cloud = smoothPointCloud(input_cloud);
@@ -608,16 +628,19 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
     ROS_WARN_STREAM_THROTTLE(0.1, "Peduncle detections empty");
     return false;
   }
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr merged_peduncle_cloud(new pcl::PointCloud<pcl::PointXYZRGB>);
+
   ROS_INFO_STREAM_THROTTLE(0.1, "Peduncle detections size: "<<detections->peduncles.size());
   for(int i = 0; i < detections->peduncles.size(); ++i)
   {
-    if(confident_id_available_ && detections->peduncles[i].instance_id == fruit_id_of_confident_detection_)
+    if((confident_id_available_ && detections->peduncles[i].associated_instance == fruit_id_of_confident_detection_) || detections->peduncles[i].instance_id == 4600)
     {
       if(isPeduncleCloudValid(detections->peduncles[i]))
       {
         peduncle_found = true;
         peduncle_det_idx = i;
-        break;
+        *merged_peduncle_cloud += *(detections->peduncles[i].cloud_segment);
+        //break;
       }
     }
     else
@@ -626,7 +649,8 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
       {
         peduncle_found = true;
         peduncle_det_idx = i;
-        break;
+        *merged_peduncle_cloud += *(detections->peduncles[i].cloud_segment);
+        //break;
       }
     }
   }
@@ -635,8 +659,9 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
     ROS_WARN_STREAM_THROTTLE(0.1, "No peduncle found in current detections");
     return false;
   }
-  ROS_INFO_STREAM_THROTTLE(0.1, "PEDUNCLE FOUND++++++++++++++++++++++++++++++++");
-  Peduncle peduncle = convert(detections->peduncles[peduncle_det_idx]);
+  ROS_INFO_STREAM_THROTTLE(0.1, "Peduncle found with size: "<<detections->peduncles[peduncle_det_idx].cloud_segment->size());
+  //Peduncle peduncle = convert(detections->peduncles[peduncle_det_idx]);
+  Peduncle peduncle = convert(merged_peduncle_cloud);
 
   peduncle_buffer_->addFrame(peduncle.peduncle_cloud, ros::Time::now());
 
@@ -653,7 +678,7 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
   computed_peduncle_ = peduncle;
   is_peduncle_computed_ = true;
   setCurrentEstimateOfTheInterestedFruit(fruit_with_peduncle);
-  ROS_INFO_STREAM_THROTTLE(0.1, "UPDATED FRUIT WITH PEDUNCLE++++++++++++++++++++++++++++++++");
+  ROS_INFO_STREAM_THROTTLE(0.00001, "UPDATED FRUIT WITH PEDUNCLE of size: "<<peduncle.peduncle_cloud->size());
   return true;
 }
 
@@ -668,7 +693,7 @@ bool OnlineFruitEstimator::computePeduncleEstimate()
 //     return false;
 // }
 
-bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle)
+bool OnlineFruitEstimator::isPeduncleCloudValid(pointcloud_roi::SemanticInstanceDetection& peduncle)
 {
   if(peduncle.cloud_segment == nullptr || peduncle.cloud_segment->empty())
   {
@@ -689,7 +714,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
 
   bbox_min = centre - dim ;
   bbox_min.x() = bbox_min.x() - 0.02;
-  bbox_min.y() = bbox_min.y() - 0.02;
+  bbox_min.y() = bbox_min.y() - 0.03;
 
   bbox_min.z() = bbox_min.z() + 1.0*dim.z()-0.01;
 

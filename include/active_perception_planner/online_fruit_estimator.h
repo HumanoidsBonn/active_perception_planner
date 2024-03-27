@@ -264,6 +264,9 @@ class OnlineFruitEstimator
 
   Peduncle convert(pointcloud_roi::SemanticInstanceDetection& ped_det);
 
+  Peduncle convert(pcl::PointCloud<pcl::PointXYZRGB>::Ptr& cloud_segment);
+
+
   bool getPose(geometry_msgs::TransformStamped& transform, const std::string& target_frame, const std::string& original_frame);
 
   template <typename PointT>
@@ -274,7 +277,7 @@ class OnlineFruitEstimator
 
   void publishDebug();
 
-  bool isPeduncleCloudValid(const pointcloud_roi::SemanticInstanceDetection& peduncle);
+  bool isPeduncleCloudValid(pointcloud_roi::SemanticInstanceDetection& peduncle);
 
   bool isCutterOccludingPeduncle(const Eigen::Vector3d& cutter_ee_pos, const Peduncle& peduncle, double dist_threshold);
   std::shared_ptr<pointcloud_roi::SemanticInstanceDetections> readDetections(double sleep_time, double total_time, bool enable_continuous_detections);

@@ -21,7 +21,7 @@ OnlinePoseTracker::OnlinePoseTracker(ros::NodeHandle& nhp):nhp_(nhp)//, status_m
 
   sub_xarm_robot_msg_ = nhp_.subscribe("/head/xarm_states", 1, &OnlinePoseTracker::registerXarmStateCallback, this);
 
-  //sub_xarm_js_ = nhp_.subscribe("/head/joint_states", &OnlinePoseTracker::registerJointStateCallback)
+  sub_xarm_js_ = nhp_.subscribe("/head/joint_states", 1, &OnlinePoseTracker::registerJointStateCallback, this);
 
 
   //client_switch_controllers_ = nhp_.serviceClient<controller_manager_msgs::SwitchController>("/controller_manager/switch_controller");
@@ -213,6 +213,7 @@ bool OnlinePoseTracker::updateOTGGoalPose(const geometry_msgs::PoseStamped& pose
   cmd.target_frame = end_effector_frame;
   cmd.header = pose_stamped.header;
   cmd.stop = false;
+  cmd.max_vel = 0;
   cmd.header.stamp = ros::Time::now();
   publishOTGControllerCmd(cmd);
   return true;
@@ -222,6 +223,7 @@ void OnlinePoseTracker::stopOTGMotion()
 {
   oc2_interface_msgs::ControllerCmd cmd;
   cmd.header.stamp = ros::Time::now();
+  cmd.max_vel = 0;
   cmd.stop = true;
   cmd.target_frame = "zed2i_camera_center";
   cmd.header.frame_id = "trolley_local_link";
@@ -264,6 +266,20 @@ void OnlinePoseTracker::registerJointStateCallback(const sensor_msgs::JointState
 {
     joint_state_msg_ = msg;
     joint_state_recd_ = true;
+
+    double sum = 0.0;
+    for(int i = 0; i < joint_state_msg_.velocity.size(); ++i)
+    {
+      sum = sum + fabs(joint_state_msg_.velocity[i]);
+    }
+    if(sum < 0.02)
+    {
+      is_head_stationary_.store(true);
+    }
+    else
+    {
+      is_head_stationary_.store(false);
+    }
 }
 
 void OnlinePoseTracker::checkArmStatusTimerCallback(const ros::TimerEvent& e)
