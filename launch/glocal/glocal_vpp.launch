@@ -1,0 +1,10 @@
+<launch>
+  <arg name="scene_name" default="sweet_pepper" />
+  <arg name="visualize" default="false" />
+
+  <include file="$(find gsm_node)/launch/gsm_node.launch">
+    <arg name="scene_name" value="$(arg scene_name)" />
+    <arg name="visualize" value="$(arg visualize)" />
+  </include>
+
+</launch>

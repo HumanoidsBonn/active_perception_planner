@@ -303,6 +303,37 @@ inline Vector6d computeWeightedAverageUsingVariance(const Eigen::Vector3d& m1, c
 
 }
 
+// Function to get the current timestamp in string format
+inline std::string getCurrentTimestamp() {
+  std::time_t t = std::time(nullptr);
+  std::tm* now = std::localtime(&t);
+  std::stringstream ss;
+  ss << (now->tm_year + 1900) << '_'
+      << (now->tm_mon + 1) << '_'
+      << now->tm_mday << '_'
+      << now->tm_hour << '_'
+      << now->tm_min << '_'
+      << now->tm_sec;
+  return ss.str();
+}
+
+// Function to create a folder using POSIX mkdir
+inline bool createDirectory(const std::string& path) {
+  // 0755 is the permission flag, readable and executable by everyone, writable by the owner
+  if (mkdir(path.c_str(), 0755) == 0) {
+    std::cout << "Directory created: " << path << std::endl;
+    return true;
+  } else {
+    if (errno == EEXIST) {
+        std::cout << "Directory already exists: " << path << std::endl;
+    } else {
+        std::cerr << "Failed to create directory: " << path << std::endl;
+    }
+    return false;
+  }
+}
+
+
 }
 
 #endif // UTILS_H

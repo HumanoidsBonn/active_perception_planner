@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+
+<launch>
+    <include file="$(find active_perception_planner)/launch/glocal/glocal_vpp.launch"/>
+    <include file="$(find active_perception_planner)/launch/glocal/glocal_depth_segmentation.launch"/>
+</launch>

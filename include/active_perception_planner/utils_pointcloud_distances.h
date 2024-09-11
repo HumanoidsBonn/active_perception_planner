@@ -5,24 +5,20 @@
 #include<fstream>
 #include <string>
 #include <vector>
-#include <pcl/point_types.h>
-#include <pcl/io/ply_io.h>
+#include <filesystem>
+
 
 // PCL
+#include <pcl/point_types.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/io/pcd_io.h>
+#include <pcl/io/ply_io.h>
 #include <pcl/console/print.h>
 #include <pcl/console/parse.h>
 #include <pcl/console/time.h>
 #include <pcl/search/kdtree.h>
 #include <pcl/common/common.h>
 #include <pcl/filters/passthrough.h>
-
-#include <iostream>
-#include<fstream>
-#include <string>
-#include <vector>
-#include <filesystem>
-
 
 using namespace std;
 
@@ -300,6 +296,21 @@ inline pcl::PointCloud<pcl::PointXYZRGB>::Ptr filterPointCloudByBoundingBox(cons
     return filtered_cloud;
 }
 
+// Template function to save a PointCloud as PCD and PLY
+template<typename PointT>
+inline void savePointCloud(const typename pcl::PointCloud<PointT>::Ptr& cloud, const std::string& base_filename, const std::string& folder_path) {
+  std::string pcd_filename = folder_path + "/" + base_filename + ".pcd";
+  std::string ply_filename = folder_path + "/" + base_filename + ".ply";
+
+
+  // Save as PCD file
+  pcl::io::savePCDFileASCII(pcd_filename, *cloud);
+  std::cout << "PCD file saved successfully: " << pcd_filename << std::endl;
+
+  // Save as PLY file
+  pcl::io::savePLYFileASCII(ply_filename, *cloud);
+  std::cout << "PLY file saved successfully: " << ply_filename << std::endl;
+}
 
 }
 

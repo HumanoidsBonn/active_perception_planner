@@ -166,7 +166,7 @@ add_library(${PROJECT_NAME}
   src/${PROJECT_NAME}/online_fruit_estimator.cpp
   src/${PROJECT_NAME}/voxblox_tsdf_map.cpp
   src/${PROJECT_NAME}/voxblox_esdf_map.cpp
-
+  src/${PROJECT_NAME}/fruit_shape_estimator.cpp
 )
 
 target_link_libraries(${PROJECT_NAME}
@@ -198,6 +198,18 @@ add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catk
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(${PROJECT_NAME}_node
+  ${PROJECT_NAME}
+  ${catkin_LIBRARIES}
+  ${YAML_CPP_LIBRARIES}
+  ${PCL_LIBRARIES}
+
+)
+
+add_executable(evaluate_map_node src/${PROJECT_NAME}/evaluation_interface.cpp)
+set_target_properties(evaluate_map_node PROPERTIES OUTPUT_NAME map_evaluator PREFIX "")
+add_dependencies(evaluate_map_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+add_dependencies(evaluate_map_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
+target_link_libraries(evaluate_map_node
   ${PROJECT_NAME}
   ${catkin_LIBRARIES}
   ${YAML_CPP_LIBRARIES}
