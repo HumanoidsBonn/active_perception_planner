@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-<arg name="debug" default="true" />
+<arg name="debug" default="false" />
 <arg unless="$(arg debug)" name="launch_prefix" value="" />
 <arg if="$(arg debug)"     name="launch_prefix" value="gdb -ex run --args" />
 <!-- <arg name="config" default="$(find active_perception_planner)/config/ur_simulated_config.yaml"/> -->
