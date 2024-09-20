@@ -40,7 +40,7 @@ ActivePercieverInterface::ActivePercieverInterface():nhp_("~"), tfListener_(tfBu
 	act_detection_server_->registerGoalCallback(boost::bind(&ActivePercieverInterface::executeDetectionServerGoalCallback, this));
   act_detection_server_->registerPreemptCallback(boost::bind(&ActivePercieverInterface::preemptDetectionServerGoalCallback, this));
 
-
+  pub_observed_fruits_ = nhp_.advertise<sensor_msgs::PointCloud2>("observed_fruit_shapes_surface", 2, true);
   pub_superellipsoids_ = nhp_.advertise<sensor_msgs::PointCloud2>("completed_fruit_shapes_surface", 2, true);
 
   pub_crop_ = nhp_.advertise<oc2_interface_msgs::Crop>("crop", 1, true);
@@ -431,15 +431,19 @@ void ActivePercieverInterface::publishVisualizations()
   FruitMap fruit_map   = active_perciever_->getFruitMap();
   FruitMapIterator it;
   pcl::PointCloud<pcl::PointXYZ>::Ptr debug_pc(new pcl::PointCloud<pcl::PointXYZ>);
+  pcl::PointCloud<pcl::PointXYZRGB>::Ptr obs_pc(new pcl::PointCloud<pcl::PointXYZRGB>);
   sensor_msgs::PointCloud2 debug_pc_ros, cloud_out;
+  sensor_msgs::PointCloud2 obs_pc_ros, obs_cloud_out;
   for(it = fruit_map.begin(); it != fruit_map.end(); ++it)
   {
     *(debug_pc) += *(it->second.completed_fruit_shape);
+    *(obs_pc) += *(it->second.observed_fruit_shape);
+
   }
   pcl::toROSMsg(*debug_pc, debug_pc_ros);
-  debug_pc_ros.header.stamp = ros::Time::now();
-  debug_pc_ros.header.frame_id = "trolley_local_link";
-
+  pcl::toROSMsg(*obs_pc, obs_pc_ros);
+  debug_pc_ros.header.stamp = obs_pc_ros.header.stamp = ros::Time::now();
+  debug_pc_ros.header.frame_id = obs_pc_ros.header.frame_id = "trolley_local_link";
 
   geometry_msgs::TransformStamped transformStamped;
   try
@@ -448,7 +452,9 @@ void ActivePercieverInterface::publishVisualizations()
             ros::Time(0));
     std::cout << transformStamped << std::endl;
     tf2::doTransform(debug_pc_ros, cloud_out, transformStamped);
+    tf2::doTransform(obs_pc_ros, obs_cloud_out, transformStamped);
     pub_superellipsoids_.publish(cloud_out);
+    pub_observed_fruits_.publish(obs_cloud_out);
   }
   catch (tf2::TransformException &ex)
   {
