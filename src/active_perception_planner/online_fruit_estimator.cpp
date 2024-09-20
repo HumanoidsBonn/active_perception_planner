@@ -40,9 +40,9 @@ tf_listener_(tf_buffer_)
   timer_tf_   = nhp_.createTimer(ros::Duration(0.4), &OnlineFruitEstimator::processTFTimerCallback, this);
   timer_tf_.start();
   int buffer_size = 5;
-  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 4);
+  nhp_.param<int>("ofe/peduncle/buffer_size", buffer_size, 3);
 
-  peduncle_buffer_ = std::make_unique<PointCloudBuffer<pcl::PointXYZRGB>>(buffer_size, 0.5);
+  peduncle_buffer_ = std::make_unique<PointCloudBuffer<pcl::PointXYZRGB>>(buffer_size, 0.4);
 
   pub_peduncle_fruitpoint_  = nhp_.advertise<geometry_msgs::Point>("peduncle_fruitpoint", 1, false);
   pub_peduncle_stempoint_   = nhp_.advertise<geometry_msgs::Point>("peduncle_stempoint", 1, false);
@@ -713,14 +713,14 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(pointcloud_roi::SemanticInstance
   Eigen::Vector3d bbox_min, bbox_max;
 
   bbox_min = centre - dim ;
-  bbox_min.x() = bbox_min.x() - 0.02;
-  bbox_min.y() = bbox_min.y() - 0.03;
+  bbox_min.x() = bbox_min.x() - 0.0;
+  bbox_min.y() = bbox_min.y() - 0.0;
 
   bbox_min.z() = bbox_min.z() + 1.0*dim.z()-0.01;
 
   bbox_max = centre + dim;
-  bbox_max.x() = bbox_max.x() + 0.02;
-  bbox_max.y() = bbox_max.y() + 0.03;
+  bbox_max.x() = bbox_max.x() + 0.0;
+  bbox_max.y() = bbox_max.y() + 0.0;
 
   bbox_max.z() = bbox_max.z() + 1.0*dim.z() + 0.02;
 
