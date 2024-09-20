@@ -75,7 +75,7 @@ ActivePerciever::ActivePerciever(ros::NodeHandle& nhp, const std::string& planni
   head_base_link_origin_.y() = -0.070;
   head_base_link_origin_.z() = 0.487;
   
-  arm_left_base_link_origin_.x() = 0.365;
+  arm_left_base_link_origin_.x() = 0.38;
   arm_left_base_link_origin_.y() = 0.11;
   arm_left_base_link_origin_.z() = 0.094;
 
@@ -182,6 +182,7 @@ bool ActivePerciever::performLocalMappingMotion()
     return false; //getActivePercieverStatus();
   }
   callEmptyService(client_start_gsm_node_);
+  sleep(1.5);
   processDetectionsAtSensorPose();
   for(const auto& next_pose: mapping_poses_list_)
   {
@@ -196,11 +197,11 @@ bool ActivePerciever::performLocalMappingMotion()
       return false; //getActivePercieverStatus();
     }
     
-    sleep(0.9);
+    sleep(1.5);
     processDetectionsAtSensorPose();
 
   }
-  sleep(0.9);
+  sleep(1.5);
   // std_msgs::Bool control;
   // control.data = false;
   // pub_control_gsm_.publish(control);
@@ -944,7 +945,7 @@ bool ActivePerciever::computeViewpointOriginForZPlane(geometry_msgs::Point& vp_o
   bool success = false;
   Eigen::Vector3d plane_point;
   plane_point.setZero();
-  plane_point(2) = fruit_centre.z + fruit_dim.z + 0.05;
+  plane_point(2) = fruit_centre.z + fruit_dim.z + 0.10; //TODO: make parameter
   Eigen::Vector3d inter_pt;
   for(int num_tries = 0; num_tries < max_num_tries; num_tries++)
   {
