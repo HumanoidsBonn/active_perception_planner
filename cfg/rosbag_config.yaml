@@ -40,8 +40,10 @@ normals_method: 3
 normals_window_size: 13
 visualize_segmented_scene: false
 publish_while_moving: false
+use_joint_velocities: true
 max_joint_difference: 0.000005
-wait_time_stationary: 0.5
+max_joint_velocity: 0.005
+wait_time_stationary: 0.2
 min_segment_size: 200
 min_segment_depth: 0.3
 max_segment_depth: 1.0

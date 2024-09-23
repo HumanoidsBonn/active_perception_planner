@@ -1,0 +1,4 @@
+<launch>
+  <include file="$(find active_perception_planner)/launch/glocal/glocal_depth_segmentation.launch"/>
+  <include file="$(find active_perception_planner)/launch/glocal/glocal_object_detection.launch"/>
+</launch>

@@ -17,7 +17,7 @@ FruitShapeEstimator::FruitShapeEstimator(ros::NodeHandle& nhp):nhp_(nhp),
   tf_buffer_(ros::Duration(30)),
   tf_listener_(tf_buffer_)
 {
-  nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.04);
+  nhp_.param<double>("fruit_separation_z_diff", fruit_separation_z_diff_, 0.03);
   nhp_.param<double>("fruit_separation_xycenter_diff", fruit_separation_xycenter_diff_, 0.06);
   se_detector_ = std::make_shared<superellipsoid::SuperellipsoidDetector>();
   listener_ = std::make_unique<tf::TransformListener>();

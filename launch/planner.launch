@@ -23,7 +23,7 @@
     <param name="use_fixed_pose"                value="false" />
     <param name="ofe/peduncle/buffer_size"      value="3" />
     <param name="use_exact_sync"                value="true" />
-    <param name="disable_motion"                value="false" />
+    <param name="disable_motion"                value="true" />
     <param name="wait_time"                     value="0.0" />
     <param name="disable_d405_processing"       value="true" />
     <remap from="~pc" to="/zed2i/depth/points_filtered" />

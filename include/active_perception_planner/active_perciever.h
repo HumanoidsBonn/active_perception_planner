@@ -248,7 +248,6 @@ protected:
 
   bool computeFruitShapes(const std::vector<vpp_msgs::InstancePointcloudwithCentroid>& instance_clouds_with_centroid);
   bool computeFruitShapes(const pointcloud_roi_msgs::PointCloudInstances& pointcloud_instances);
-;
   int removeFalsePositives();
 
   inline void setActivePercieverStatus(const ActivePercieverStatus& status)

@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <launch>
     <arg name="map_frame" default="world" />
-    <arg name="rosbag_file" default="/home/rohit/workspace/data/2023_cka_zed2i/2023-08-02-15-14-18.bag"/>
+    <arg name="rosbag_file" default="/home/rohit/data/glasshouse/2023_cka/2023-09-26-16-07-47.bag"/>
     <arg name="rate" default="1.0"/>
     <!-- <arg name="paused" default="false"/> -->
     <param name="/use_sim_time" type="bool" value="true" />

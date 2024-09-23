@@ -699,7 +699,7 @@ bool OnlineFruitEstimator::isPeduncleCloudValid(const pointcloud_roi::SemanticIn
 
   bbox_max.z() = bbox_max.z() + 1.0*dim.z() + 0.02;
 
-  peduncle.cloud_segment = utils::filterPointCloudByBoundingBox(peduncle.cloud_segment, bbox_min, bbox_max);
+  //peduncle.cloud_segment = utils::filterPointCloudByBoundingBox(peduncle.cloud_segment, bbox_min, bbox_max);
   if(peduncle.cloud_segment->empty())
   {
     ROS_WARN_THROTTLE(0.00001, "isPeduncleCloudValid: After BBOX filtering Peduncle cloud empty");

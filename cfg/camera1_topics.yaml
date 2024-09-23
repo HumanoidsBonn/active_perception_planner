@@ -1,0 +1,8 @@
+depth_image_sub_topic: /trollomatic/camera1/aligned_depth_to_color/image_raw #/camera/depth/image_raw_noisy  #/camera/depth/image_raw
+rgb_image_sub_topic: /trollomatic/camera1/color/image_raw
+depth_camera_info_sub_topic: /trollomatic/camera1/aligned_depth_to_color/camera_info #/camera/aligned_depth_to_color/camera_info
+rgb_camera_info_sub_topic: /trollomatic/camera1/color/camera_info
+pointcloud_sub_topic: /zed2i/depths/points
+semantic_instance_segmentation_sub_topic: /camera1_yolo_segmentation_ros_node/result
+forward_labeled_segments_only: false
+use_overlap_bits_only: false                                                                                                                                                                                                                                            

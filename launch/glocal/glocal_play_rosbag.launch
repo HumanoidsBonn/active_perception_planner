@@ -1,0 +1,17 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="map_frame" default="world" />
+    <arg name="rosbag_file" default="/media/rohit/data/armbags/20221013/2022-10-13_try3_row5_with_map/armbag_2022-10-13-14-00-32.bag"/>
+    <arg name="rate" default="0.2"/>
+    <arg name="paused" default="true"/>
+    <param name="/use_sim_time" type="bool" value="true" />
+    
+    <!-- <include file="$(find active_perception_planner)/launch/publish_cloud.launch"/> -->
+
+    <!-- remux static transforms -->
+    <!-- <remap from = "/joint_states" to = "/joint_states_raw" /> -->
+
+    <node pkg="rosbag" type="play" name="player" output="screen" args="--clock --pause -r $(arg rate) $(arg rosbag_file)"/>
+    
+
+</launch>

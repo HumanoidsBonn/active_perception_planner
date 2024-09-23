@@ -1,0 +1,16 @@
+<?xml version="1.0"?>
+<launch>
+    <arg name="map_frame" default="world" />
+    <arg name="rosbag_file" default="/media/rohit/CloudStorage/13102022/13102022155344_sweet_pepper_row5/trolley_2022-10-13-15-53-44.bag"/>
+    <arg name="rate" default="0.1"/>
+    <arg name="paused" default="true"/>
+    <param name="/use_sim_time" type="bool" value="true" />
+    
+    <!-- <include file="$(find active_perception_planner)/launch/publish_cloud.launch"/> -->
+
+    <!-- remux static transforms -->
+
+    <node pkg="rosbag" type="play" name="trolley_player" output="screen" args="--clock --pause -r $(arg rate) $(arg rosbag_file)"/>
+    
+
+</launch>

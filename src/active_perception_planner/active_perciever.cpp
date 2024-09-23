@@ -196,11 +196,11 @@ bool ActivePerciever::performLocalMappingMotion()
       return false; //getActivePercieverStatus();
     }
     
-    sleep(0.9);
+    sleep(1.5);
     processDetectionsAtSensorPose();
 
   }
-  sleep(0.9);
+  sleep(1.5);
   // std_msgs::Bool control;
   // control.data = false;
   // pub_control_gsm_.publish(control);
