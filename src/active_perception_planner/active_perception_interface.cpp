@@ -523,6 +523,11 @@ bool ActivePercieverInterface::processSaveJointStatesCallback(oc2_interface_msgs
 
 }
 
+bool ActivePercieverInterface::processRemoveFruitServiceCallback(oc2_interface_msgs::RemoveFruit::Request& req, oc2_interface_msgs::RemoveFruit::Response& res)
+{
+  publishVisualizations
+}
+
 bool ActivePercieverInterface::callEmptyService(ros::ServiceClient& client)
 {
   std_srvs::Empty empty_srv;
