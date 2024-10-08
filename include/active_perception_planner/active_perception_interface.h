@@ -15,6 +15,7 @@
 #include <actionlib/server/simple_action_server.h>
 #include <oc2_interface_msgs/DetectFruitsAction.h>
 #include <oc2_interface_msgs/StartFollowPeduncle.h>
+#include <oc2_interface_msgs/RemoveFruit.h>
 
 #include <yolact_ros_msgs/SetConfidence.h>
 #include <yolact_ros_msgs/SetRegionOfInterest.h>
@@ -43,6 +44,8 @@ public:
 
   void preemptDetectionServerGoalCallback();
 
+  bool processRemoveFruitServiceCallback(oc2_interface_msgs::RemoveFruit::Request& req, oc2_interface_msgs::RemoveFruit::Response& res);
+
 
 protected:
 
@@ -69,7 +72,7 @@ protected:
 
   std::shared_ptr<ActivePerciever> active_perciever_;
 
-  ros::Publisher pub_superellipsoids_;
+  ros::Publisher pub_superellipsoids_, pub_observed_fruits_;
   ros::Publisher pub_crop_;
 
   oc2_interface_msgs::DetectFruits::Response getFruitMapAsSrvResponse();

@@ -1,6 +1,6 @@
 <?xml version="1.0"?>
 <launch>
-<arg name="debug" default="true" />
+<arg name="debug" default="false" />
 <arg unless="$(arg debug)" name="launch_prefix" value="" />
 <arg if="$(arg debug)"     name="launch_prefix" value="gdb -ex run --args" />
 <!-- <arg name="config" default="$(find active_perception_planner)/config/ur_simulated_config.yaml"/> -->
@@ -26,7 +26,7 @@
     <param name="disable_motion"                value="false" />
     <param name="wait_time"                     value="0.0" />
     <param name="disable_d405_processing"       value="true" />
-    <remap from="~pc" to="/zed2i/depth/points_filtered" />
+    <remap from="~pc" to="/zed2i/depth/points" />
     <remap from="~rgb" to="/zed2i/left/image_rect_color" />
     <remap from="~depth" to="/zed2i/depth/depth_registered" />
     <remap from="~dets" to="/yolo_segmentation_ros_node/detections" />

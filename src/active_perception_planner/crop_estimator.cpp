@@ -24,18 +24,18 @@ Crop CropEstimator::createCrop(const FruitMap& fruit_map, const std::unordered_m
     }
     else
     {
-      ROS_INFO_STREAM("Has no peduncle");
+      ROS_WARN_STREAM("Has no peduncle");
     }
   }
   ROS_INFO_STREAM("Created fruit_with_peduncle_map");
   if(stems.size()> 0)
   {
-    ROS_INFO_STREAM("Creating associateStemsWithFruits");
+    //ROS_INFO_STREAM("Creating associateStemsWithFruits");
     associateStemsWithFruits(fruit_with_peduncle_map, stems, 0.08f, 0.04f);
     ROS_INFO_STREAM("Created associateStemsWithFruits");
   }
   
-  ROS_INFO_STREAM("Creating crop");
+  //ROS_INFO_STREAM("Creating crop");
   Crop crop(fruit_with_peduncle_map, stems);
   ROS_INFO_STREAM("Created crop");
   return crop;

@@ -18,8 +18,8 @@ cloud_filter_chain:
       sensor/point_by_point: False
       sensor/min_distance: 0.2
       sensor/max_distance: 1.5
-      body_model/inflation/scale: 1.05
-      body_model/inflation/padding: 0.01
+      body_model/inflation/scale: 0.95
+      body_model/inflation/padding: 0.00
       body_model/robot_description_param: '/robot_description'
       transforms/buffer_length: 15.0
       transforms/timeout/reachable: 0.2

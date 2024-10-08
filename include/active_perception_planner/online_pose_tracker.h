@@ -81,6 +81,11 @@ class OnlinePoseTracker
 
   oc2_interface_msgs::ControllerStatus getOTGStatus();
 
+  inline bool isHeadStationary()
+  {
+    return is_head_stationary_.load();
+  }
+
   bool isOTGRunning();
 
   bool isOTGReadyForNewTarget();
@@ -140,6 +145,8 @@ class OnlinePoseTracker
   int desired_mode_ = 1;
   bool is_ready_ = false;
   bool is_changing_config_ = false;
+
+  std::atomic_bool is_head_stationary_ = true;
 
 
   //StatusMonitor status_monitor_;
